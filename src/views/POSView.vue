@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted } from "vue";
+import { useRouter } from "vue-router";
 import { supabase } from "../services/supabase";
 import { useCartStore } from "../stores/cartStore";
 
@@ -7,8 +8,9 @@ import CardDrink from "../components/CardDrink.vue";
 import CartSidebar from "../components/CartSidebar.vue";
 import ProductOptionsModal from "../components/ProductOptionsModal.vue";
 
-import { ShoppingBag, Menu, Search, X } from "lucide-vue-next";
+import { ShoppingBag, Menu, Search, X, Settings } from "lucide-vue-next";
 
+const router = useRouter();
 const cartStore = useCartStore();
 
 const menu = ref([]);
@@ -16,7 +18,7 @@ const categories = ref([]);
 const selectedCategory = ref("All");
 const isCartOpen = ref(false);
 const loading = ref(true);
-const searchQuery = ref(""); // Added back search
+const searchQuery = ref("");
 
 const showOptions = ref(false);
 const selectedDrink = ref(null);
@@ -59,8 +61,12 @@ const handleDrinkClick = (drink) => {
 
 const confirmAddToCart = (drinkWithOptions) => {
   cartStore.addToCart(drinkWithOptions);
-  isCartOpen.value = true; // Show cart after adding item
+  isCartOpen.value = true;
   showOptions.value = false;
+};
+
+const goToAdmin = () => {
+  router.push("/admin");
 };
 
 onMounted(fetchMenu);
@@ -70,39 +76,33 @@ onMounted(fetchMenu);
   <div
     class="flex h-screen bg-white text-slate-900 font-sans antialiased overflow-hidden"
   >
-    <aside
-      class="hidden w-20 flex-col items-center py-8 bg-white border-r border-slate-200 flex-shrink-0"
-    >
-      <div
-        class="w-10 h-10 bg-black rounded-xl flex items-center justify-center mb-12"
-      >
-        <span class="text-white font-black text-xl">S</span>
-      </div>
-      <nav class="flex flex-col gap-8">
-        <button class="p-3 bg-slate-100 rounded-xl text-black shadow-inner">
-          <ShoppingBag class="w-6 h-6" />
-        </button>
-      </nav>
-    </aside>
-
     <main class="flex-1 flex flex-col min-w-0 relative">
       <header
         class="h-20 bg-white px-6 flex items-center justify-between sticky top-0 z-30 flex-shrink-0"
       >
         <div class="flex items-center gap-6 pt-6">
           <div class="lg:hidden">
-            <Menu class="w-6 h-6 text-slate-500" />
+            <button @click="goToAdmin">
+              <Menu class="w-6 h-6 text-slate-500" />
+            </button>
           </div>
-          <div>
-            <div class="text-xl font-medium tracking-tight font-khmer">
-              សាយ័ណ្ហកាហ្វេ
+
+          <button
+            @click="goToAdmin"
+            class="bg-white border-none"
+            title="Admin Panel"
+          >
+            <div class="flex flex-col items-start">
+              <div class="text-xl font-medium tracking-tight font-khmer">
+                សាយ័ណ្ហកាហ្វេ
+              </div>
+              <p
+                class="text-[10px] uppercase tracking-widest text-slate-400 font-semibold"
+              >
+                Cambodge POS System
+              </p>
             </div>
-            <p
-              class="text-[10px] uppercase tracking-widest text-slate-400 font-semibold"
-            >
-              Cambodge POS System
-            </p>
-          </div>
+          </button>
         </div>
 
         <div class="hidden sm:flex items-center gap-4 flex-1 max-w-md mx-8">
@@ -134,7 +134,7 @@ onMounted(fetchMenu);
       </header>
 
       <div
-        class="mx-auto py-4 flex gap-3 overflow-x-auto scrollbar-hide flex-shrink-0"
+        class="p-4 flex gap-3 overflow-x-auto scrollbar-hide flex-shrink-0"
       >
         <button
           v-for="cat in categories"
@@ -228,7 +228,6 @@ onMounted(fetchMenu);
 .scrollbar-hide {
   scrollbar-width: none;
 }
-/* iOS Safe Area */
 .safe-bottom {
   padding-bottom: env(safe-area-inset-bottom);
 }
