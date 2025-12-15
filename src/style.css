@@ -1,7 +1,9 @@
 /* src/style.css */
 
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  /* CHANGE: Update the font-family to match the one defined in vite.config.js */
+  /* This ensures the entire application uses the Montserrat/Preahvihear stack */
+  font-family: Montserrat, Preahvihear, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
 }

@@ -7,7 +7,7 @@ import CardDrink from "../components/CardDrink.vue";
 import CartSidebar from "../components/CartSidebar.vue";
 import ProductOptionsModal from "../components/ProductOptionsModal.vue";
 
-import { ShoppingBag } from "lucide-vue-next";
+import { ShoppingBag, Menu, Search, X } from "lucide-vue-next";
 
 const cartStore = useCartStore();
 
@@ -16,6 +16,7 @@ const categories = ref([]);
 const selectedCategory = ref("All");
 const isCartOpen = ref(false);
 const loading = ref(true);
+const searchQuery = ref(""); // Added back search
 
 const showOptions = ref(false);
 const selectedDrink = ref(null);
@@ -24,7 +25,7 @@ const selectedDrink = ref(null);
 const fetchMenu = async () => {
   loading.value = true;
 
-  const { data, error } = await supabase
+  const { data } = await supabase
     .from("drinks")
     .select("*")
     .eq("available", true)
@@ -32,16 +33,22 @@ const fetchMenu = async () => {
 
   if (data) {
     menu.value = data;
-    categories.value = ["All", ...new Set(data.map(d => d.category))];
+    categories.value = ["All", ...new Set(data.map((d) => d.category))];
   }
 
   loading.value = false;
 };
 
-// ---------------- FILTER ----------------
+// ---------------- FILTER & SEARCH ----------------
 const filteredMenu = computed(() => {
-  if (selectedCategory.value === "All") return menu.value;
-  return menu.value.filter(d => d.category === selectedCategory.value);
+  return menu.value.filter((d) => {
+    const matchesCat =
+      selectedCategory.value === "All" || d.category === selectedCategory.value;
+    const matchesSearch = d.name
+      .toLowerCase()
+      .includes(searchQuery.value.toLowerCase());
+    return matchesCat && matchesSearch;
+  });
 });
 
 // ---------------- ACTIONS ----------------
@@ -52,6 +59,7 @@ const handleDrinkClick = (drink) => {
 
 const confirmAddToCart = (drinkWithOptions) => {
   cartStore.addToCart(drinkWithOptions);
+  isCartOpen.value = true; // Show cart after adding item
   showOptions.value = false;
 };
 
@@ -59,56 +67,108 @@ onMounted(fetchMenu);
 </script>
 
 <template>
-  <div class="flex h-screen bg-zinc-50 overflow-hidden">
+  <div
+    class="flex h-screen bg-white text-slate-900 font-sans antialiased overflow-hidden"
+  >
+    <aside
+      class="hidden w-20 flex-col items-center py-8 bg-white border-r border-slate-200 flex-shrink-0"
+    >
+      <div
+        class="w-10 h-10 bg-black rounded-xl flex items-center justify-center mb-12"
+      >
+        <span class="text-white font-black text-xl">S</span>
+      </div>
+      <nav class="flex flex-col gap-8">
+        <button class="p-3 bg-slate-100 rounded-xl text-black shadow-inner">
+          <ShoppingBag class="w-6 h-6" />
+        </button>
+      </nav>
+    </aside>
 
-    <!-- ================= MAIN ================= -->
-    <main class="flex-1 flex flex-col min-w-0">
-
-      <!-- HEADER -->
-      <header class="bg-white border-b px-4 sm:px-6 py-4 flex justify-between items-center">
-        <div>
-          <h1 class="text-lg sm:text-xl font-medium font-khmer tracking-tight">
-            សាយ័ណ្ហកាហ្វេ
-          </h1>
-          <p class="text-xs font-mono text-zinc-400">POS SYSTEM v1.0</p>
+    <main class="flex-1 flex flex-col min-w-0 relative">
+      <header
+        class="h-20 bg-white px-6 flex items-center justify-between sticky top-0 z-30 flex-shrink-0"
+      >
+        <div class="flex items-center gap-6 pt-6">
+          <div class="lg:hidden">
+            <Menu class="w-6 h-6 text-slate-500" />
+          </div>
+          <div>
+            <div class="text-xl font-medium tracking-tight font-khmer">
+              សាយ័ណ្ហកាហ្វេ
+            </div>
+            <p
+              class="text-[10px] uppercase tracking-widest text-slate-400 font-semibold"
+            >
+              Cambodge POS System
+            </p>
+          </div>
         </div>
 
-        <!-- Cart toggle (mobile) -->
+        <div class="hidden sm:flex items-center gap-4 flex-1 max-w-md mx-8">
+          <div class="relative w-full group">
+            <Search
+              class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-black transition-colors"
+            />
+            <input
+              v-model="searchQuery"
+              type="text"
+              placeholder="Search beverages..."
+              class="w-full bg-slate-50 border-none outline-none rounded-full py-2.5 pl-10 pr-4 text-sm placeholder:text-slate-400"
+            />
+          </div>
+        </div>
+
         <button
           @click="isCartOpen = true"
-          class="lg:hidden p-2 border rounded hover:bg-zinc-100"
+          class="lg:hidden relative p-2 bg-slate-100 rounded-full flex-shrink-0"
         >
           <ShoppingBag class="w-5 h-5" />
+          <span
+            v-if="cartStore.items.length"
+            class="absolute -top-1 -right-1 w-5 h-5 bg-black text-white text-[10px] font-medium flex items-center justify-center rounded-full border-2 border-white"
+          >
+            {{ cartStore.items.length }}
+          </span>
         </button>
       </header>
 
-      <!-- CATEGORIES -->
-      <div class="bg-white border-b px-3 sm:px-6 py-3 flex gap-4 overflow-x-auto scrollbar-hide">
+      <div
+        class="mx-auto py-4 flex gap-3 overflow-x-auto scrollbar-hide flex-shrink-0"
+      >
         <button
           v-for="cat in categories"
           :key="cat"
           @click="selectedCategory = cat"
-          class="pb-1 text-xs sm:text-sm uppercase tracking-wide border-b-2 whitespace-nowrap transition"
-          :class="selectedCategory === cat
-            ? 'border-black text-black'
-            : 'border-transparent text-zinc-400 hover:text-zinc-600'"
+          class="border-none rounded-full px-5 py-2 text-xs font-medium uppercase tracking-wider transition-all whitespace-nowrap"
+          :class="
+            selectedCategory === cat
+              ? 'bg-black text-white'
+              : 'bg-white text-slate-500'
+          "
         >
           {{ cat }}
         </button>
       </div>
 
-      <!-- PRODUCT GRID -->
-      <section class="flex-1 overflow-y-auto px-3 sm:px-6 py-4 scrollbar-hide">
-        <!-- Loading -->
-        <div v-if="loading" class="flex justify-center py-24">
-          <div class="animate-spin w-6 h-6 border-2 border-black border-t-transparent rounded-full"></div>
+      <section class="flex-1 overflow-y-auto scroll-smooth scrollbar-hide">
+        <div v-if="loading" class="h-full flex items-center justify-center">
+          <div
+            class="w-8 h-8 border-4 border-slate-200 border-t-black rounded-full animate-spin"
+          ></div>
         </div>
 
-        <!-- Grid -->
+        <div
+          v-else-if="filteredMenu.length === 0"
+          class="h-full flex flex-col items-center justify-center text-slate-400"
+        >
+          <Search class="w-12 h-12 mb-4 opacity-20" />
+          <p>No drinks found in this category or search.</p>
+        </div>
+
         <div
           v-else
-          class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4
-                 gap-3 sm:gap-6 pb-28 lg:pb-6"
+          class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 pb-20 lg:pb-0"
         >
           <CardDrink
             v-for="drink in filteredMenu"
@@ -120,51 +180,38 @@ onMounted(fetchMenu);
       </section>
     </main>
 
-    <!-- ================= CART ================= -->
     <aside
-      class="fixed inset-y-0 right-0 z-40 w-full sm:w-[380px] bg-white border-l
-             transform transition-transform duration-300
-             lg:relative lg:translate-x-0"
+      class="fixed inset-y-0 right-0 z-50 w-full sm:w-[400px] bg-white border-l border-slate-200 shadow-2xl transition-transform duration-500 lg:static lg:translate-x-0 lg:shadow-none flex-shrink-0"
       :class="isCartOpen ? 'translate-x-0' : 'translate-x-full'"
     >
-      <!-- Close button (mobile) -->
       <button
         @click="isCartOpen = false"
-        class="lg:hidden absolute top-4 right-4 p-2 bg-black text-white"
+        class="lg:hidden absolute top-6 left-[-50px] w-10 h-10 bg-white border border-slate-200 rounded-full flex items-center justify-center shadow-lg z-50"
       >
-        ✕
+        <X class="w-5 h-5" />
       </button>
-
-      <CartSidebar />
+      <CartSidebar @close-cart="isCartOpen = false" />
     </aside>
 
-    <!-- ================= MOBILE BOTTOM CART BUTTON ================= -->
     <button
-      v-if="cartStore.items.length > 0"
+      v-if="cartStore.items.length > 0 && !isCartOpen"
       @click="isCartOpen = true"
-      class="lg:hidden fixed bottom-0 left-0 right-0 z-30
-             bg-black text-white
-             px-4 py-4
-             flex items-center justify-between
-             text-sm font-bold
-             safe-bottom"
+      class="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-black text-white px-6 py-4 flex items-center justify-between text-sm font-medium safe-bottom shadow-2xl shadow-black/50"
     >
       <div class="flex items-center gap-3">
         <span
-          class="bg-white text-black rounded-full w-6 h-6
-                 flex items-center justify-center text-xs"
+          class="bg-white text-black rounded-full w-6 h-6 flex items-center justify-center text-xs font-black"
         >
           {{ cartStore.items.length }}
         </span>
-        <span>VIEW CART</span>
+        <span class="uppercase tracking-widest">VIEW ORDER</span>
       </div>
 
-      <span class="text-lg tracking-tight">
+      <span class="text-xl tracking-tight">
         {{ cartStore.cartTotal.toLocaleString() }}៛
       </span>
     </button>
 
-    <!-- ================= OPTIONS MODAL ================= -->
     <ProductOptionsModal
       :isOpen="showOptions"
       :drink="selectedDrink"
@@ -181,7 +228,6 @@ onMounted(fetchMenu);
 .scrollbar-hide {
   scrollbar-width: none;
 }
-
 /* iOS Safe Area */
 .safe-bottom {
   padding-bottom: env(safe-area-inset-bottom);
