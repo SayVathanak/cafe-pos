@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, onMounted } from 'vue'
+import { computed, ref, onMounted, nextTick } from 'vue'
 import { supabase } from '../services/supabase'
 
 const props = defineProps({
@@ -31,8 +31,14 @@ const formattedDate = computed(() => {
   })
 })
 
-const print = () => {
-  setTimeout(() => window.print(), 200)
+const print = async () => {
+  // 1. Wait for Vue to update the DOM with the new order data
+  await nextTick()
+  
+  // 2. Small delay to ensure styles/fonts are applied
+  setTimeout(() => {
+    window.print()
+  }, 300)
 }
 
 defineExpose({ print })
@@ -121,76 +127,85 @@ defineExpose({ print })
 </template>
 
 <style>
-/* GLOBAL PRINT STYLES */
+/* GLOBAL STYLES (Not Scoped)
+  We use basic CSS to hide the receipt on screen,
+  and force it to show during print.
+*/
+
+/* 1. Hide on Screen */
+#receipt-container {
+  display: none;
+}
+
+/* 2. Print Specifics */
 @media print {
   
+  /* RESET PAGE */
   @page {
     margin: 0;
-    size: 58mm auto;
+    size: 58mm auto; /* Critical for your printer */
   }
 
-  body * { visibility: hidden; }
-  
-  #receipt-container, #receipt-container * {
-    visibility: visible;
+  /* HIDE EVERYTHING ELSE */
+  body > *:not(#receipt-container) {
+    display: none !important;
   }
 
+  /* SHOW RECEIPT - FIX WAS HERE */
   #receipt-container {
+    display: block !important; /* Force display back on */
+    visibility: visible !important;
     position: absolute;
     left: 0;
     top: 0;
     width: 58mm;
-    padding: 0 4px;
-    box-sizing: border-box;
-    
+    margin: 0;
+    padding: 2px 4px;
     background: white;
-    color: black;
     
-    /* FIX: Use Montserrat explicitly */
+    /* FONTS */
     font-family: 'Montserrat', sans-serif;
+    color: black;
     font-size: 13px;
-    font-weight: 500; /* Medium weight */
-    line-height: 1.5; /* Good spacing */
+    font-weight: 500; /* Medium */
+    line-height: 1.4;
   }
 
-  /* KHMER FONT UTILITY */
+  /* KHMER FONT OVERRIDE */
   .khmer-text {
-    font-family: 'Preahvihear', cursive; /* Specific for prices */
-    font-weight: 400; /* Khmer fonts are usually thick enough */
+    font-family: 'Preahvihear', cursive;
+    font-weight: 400; 
   }
 
-  /* HEADER */
+  /* --- LAYOUT CLASSES --- */
+  
   .header { text-align: center; margin-bottom: 5px; }
   
   .brand { 
     font-size: 20px; 
-    font-weight: 600; /* Semi-Bold (not full Bold) */
+    font-weight: 700; /* Bold only for title */
     margin: 10px 0 5px 0;
   }
   
   .address { font-size: 11px; }
 
-  /* SEPARATOR */
   .separator {
-    border-bottom: 1px dashed #333;
+    border-bottom: 1px dashed #000;
     margin: 8px 0;
     width: 100%;
   }
 
-  /* INFO */
   .info-row {
     display: flex;
     justify-content: space-between;
     font-size: 11px;
-    font-weight: 500;
   }
 
-  /* ITEMS */
   .item-row { margin-bottom: 8px; }
   
   .item-name {
     font-size: 14px;
-    font-weight: 600; /* Semi-bold for item name */
+    font-weight: 600; /* Semi-bold */
   }
 
   .item-modifiers {
@@ -203,8 +218,8 @@ defineExpose({ print })
 
   .item-math {
     display: flex;
-    justify-content: space-between; /* Pushes total to right */
-    padding-left: 10px; /* Indent slightly */
+    justify-content: space-between;
+    padding-left: 10px;
     font-size: 13px;
     margin-top: 2px;
   }
@@ -213,7 +228,6 @@ defineExpose({ print })
     font-weight: 600;
   }
 
-  /* TOTAL SECTION */
   .total-row {
     display: flex;
     justify-content: space-between;
@@ -223,15 +237,14 @@ defineExpose({ print })
 
   .total-label {
     font-size: 16px;
-    font-weight: 600;
+    font-weight: 700;
   }
 
   .total-money {
     font-size: 22px; 
-    /* No font-weight here because 'khmer-text' class handles it */
+    /* Font family handled by khmer-text class */
   }
 
-  /* FOOTER */
   .footer { text-align: center; font-size: 11px; }
 
   .wifi-section {
@@ -245,6 +258,4 @@ defineExpose({ print })
 
   .cut-feed { padding-bottom: 30px; color: white; }
 }
-
-#receipt-container { display: none; }
 </style>
