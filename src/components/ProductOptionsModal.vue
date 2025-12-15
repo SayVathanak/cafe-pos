@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, watch } from 'vue'
 
 const props = defineProps({
   isOpen: Boolean,
@@ -8,21 +8,20 @@ const props = defineProps({
 
 const emit = defineEmits(['close', 'add-to-cart'])
 
-// Default Options
 const sugarLevel = ref('Normal')
 const iceLevel = ref('Normal')
 
 const sugarOptions = ['0%', '25%', '50%', 'Normal', 'Sweet']
 const iceOptions = ['No Ice', 'Less Ice', 'Normal', 'Extra Ice']
 
-// Reset defaults when opening a new drink
-const resetOptions = () => {
-  sugarLevel.value = 'Normal'
-  iceLevel.value = 'Normal'
-}
+watch(() => props.isOpen, (open) => {
+  if (open) {
+    sugarLevel.value = 'Normal'
+    iceLevel.value = 'Normal'
+  }
+})
 
 const handleAdd = () => {
-  // Send the chosen options back to the parent
   emit('add-to-cart', {
     ...props.drink,
     modifiers: {
@@ -30,67 +29,119 @@ const handleAdd = () => {
       ice: iceLevel.value
     }
   })
-  resetOptions()
   emit('close')
 }
 </script>
 
 <template>
-  <div v-if="isOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-    
-    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]">
-      
-      <div class="p-5 bg-gray-50 border-b flex justify-between items-center">
-        <div>
-           <h2 class="text-xl font-bold text-gray-800">{{ drink?.name }}</h2>
-           <p class="text-indigo-600 font-bold text-lg">{{ drink?.price?.toLocaleString() }}៛</p>
-        </div>
-        <button @click="$emit('close')" class="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
-      </div>
+  <transition name="fade">
+    <div
+      v-if="isOpen"
+      class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60"
+    >
+      <!-- MODAL -->
+      <div
+        class="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl
+               flex flex-col max-h-[90vh]"
+      >
+        <!-- HEADER -->
+        <div class="px-6 pt-6 pb-4 border-b">
+          <div class="flex justify-between items-start">
+            <div>
+              <h2 class="text-xl font-bold tracking-tight">
+                {{ drink?.name }}
+              </h2>
+              <p class="text-2xl font-bold text-black mt-1">
+                {{ drink?.price?.toLocaleString() }}៛
+              </p>
+            </div>
 
-      <div class="p-6 space-y-6 overflow-y-auto">
-        
-        <div>
-          <h3 class="text-sm font-bold text-gray-500 uppercase mb-3">Sugar Level</h3>
-          <div class="grid grid-cols-3 gap-2">
-            <button 
-              v-for="opt in sugarOptions" 
-              :key="opt"
-              @click="sugarLevel = opt"
-              class="py-2 px-1 rounded-lg border text-sm font-medium transition-all"
-              :class="sugarLevel === opt ? 'bg-indigo-600 text-white border-indigo-600 shadow' : 'bg-white text-gray-600 hover:bg-gray-50'"
+            <button
+              @click="$emit('close')"
+              class="w-9 h-9 rounded-full bg-zinc-100 flex items-center justify-center
+                     hover:bg-zinc-200 text-zinc-500"
             >
-              {{ opt }}
+              ✕
             </button>
           </div>
         </div>
 
-        <div>
-          <h3 class="text-sm font-bold text-gray-500 uppercase mb-3">Ice Level</h3>
-          <div class="grid grid-cols-2 gap-2">
-             <button 
-              v-for="opt in iceOptions" 
-              :key="opt"
-              @click="iceLevel = opt"
-              class="py-2 px-1 rounded-lg border text-sm font-medium transition-all"
-              :class="iceLevel === opt ? 'bg-indigo-600 text-white border-indigo-600 shadow' : 'bg-white text-gray-600 hover:bg-gray-50'"
-            >
-              {{ opt }}
-            </button>
+        <!-- OPTIONS -->
+        <div class="flex-1 overflow-y-auto px-6 py-6 space-y-8">
+          
+          <!-- SUGAR -->
+          <div>
+            <h3 class="text-xs font-bold uppercase text-zinc-500 mb-3">
+              Sugar Level
+            </h3>
+
+            <div class="grid grid-cols-3 gap-3">
+              <button
+                v-for="opt in sugarOptions"
+                :key="opt"
+                @click="sugarLevel = opt"
+                class="py-3 rounded-xl text-sm font-bold border transition"
+                :class="sugarLevel === opt
+                  ? 'bg-black text-white border-black'
+                  : 'bg-white text-zinc-600 border-zinc-200 hover:border-black'"
+              >
+                {{ opt }}
+              </button>
+            </div>
+          </div>
+
+          <!-- ICE -->
+          <div>
+            <h3 class="text-xs font-bold uppercase text-zinc-500 mb-3">
+              Ice Level
+            </h3>
+
+            <div class="grid grid-cols-2 gap-3">
+              <button
+                v-for="opt in iceOptions"
+                :key="opt"
+                @click="iceLevel = opt"
+                class="py-3 rounded-xl text-sm font-bold border transition"
+                :class="iceLevel === opt
+                  ? 'bg-black text-white border-black'
+                  : 'bg-white text-zinc-600 border-zinc-200 hover:border-black'"
+              >
+                {{ opt }}
+              </button>
+            </div>
           </div>
         </div>
 
+        <!-- FOOTER ACTION -->
+        <div
+          class="px-6 py-4 border-t bg-white
+                 sticky bottom-0 safe-bottom"
+        >
+          <button
+            @click="handleAdd"
+            class="w-full bg-black text-white py-4 rounded-2xl
+                   font-bold tracking-wide text-sm
+                   hover:bg-zinc-800 transition"
+          >
+            ADD TO CART
+          </button>
+        </div>
       </div>
-
-      <div class="p-5 border-t bg-gray-50 flex gap-3">
-        <button @click="$emit('close')" class="flex-1 py-3 text-gray-600 font-bold rounded-xl hover:bg-gray-200">
-          Cancel
-        </button>
-        <button @click="handleAdd" class="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl shadow hover:bg-indigo-700">
-          Add to Cart
-        </button>
-      </div>
-
     </div>
-  </div>
+  </transition>
 </template>
+
+<style scoped>
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+</style>
