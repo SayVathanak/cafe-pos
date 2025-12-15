@@ -17,8 +17,8 @@ defineProps({ drink: { type: Object, required: true } })
       <Coffee class="text-slate-200 w-16 h-16 stroke-1" />
     </div>
     
-    <div class="absolute top-3 left-3 rounded-full backdrop-blur-md p-1">
-      <span class="text-[10px] font-khmer text-black">{{ drink?.price?.toLocaleString() }}៛</span>
+    <div class="absolute top-3 left-3 rounded-full backdrop-blur-md px-2 py-0.5">
+      <span class="text-xs font-khmer text-black">{{ drink?.price?.toLocaleString() }}៛</span>
     </div>
   </div>
 
