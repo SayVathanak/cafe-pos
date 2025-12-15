@@ -67,7 +67,7 @@ onMounted(fetchMenu);
       <!-- HEADER -->
       <header class="bg-white border-b px-4 sm:px-6 py-4 flex justify-between items-center">
         <div>
-          <h1 class="text-lg sm:text-xl font-medium tracking-tight">
+          <h1 class="text-lg sm:text-xl font-medium font-khmer tracking-tight">
             សាយ័ណ្ហកាហ្វេ
           </h1>
           <p class="text-xs font-mono text-zinc-400">POS SYSTEM v1.0</p>
@@ -98,7 +98,7 @@ onMounted(fetchMenu);
       </div>
 
       <!-- PRODUCT GRID -->
-      <section class="flex-1 overflow-y-auto px-3 sm:px-6 py-4">
+      <section class="flex-1 overflow-y-auto px-3 sm:px-6 py-4 scrollbar-hide">
         <!-- Loading -->
         <div v-if="loading" class="flex justify-center py-24">
           <div class="animate-spin w-6 h-6 border-2 border-black border-t-transparent rounded-full"></div>
@@ -107,7 +107,7 @@ onMounted(fetchMenu);
         <!-- Grid -->
         <div
           v-else
-          class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5
+          class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4
                  gap-3 sm:gap-6 pb-28 lg:pb-6"
         >
           <CardDrink
