@@ -6,7 +6,6 @@ const props = defineProps({
   order: Object
 })
 
-// Default settings (will be overwritten by Database)
 const settings = ref({
   shop_name: 'SAYON COFFEE',
   address: 'Phnom Penh, Cambodia',
@@ -15,15 +14,15 @@ const settings = ref({
   printer_footer: 'Thank you!'
 })
 
-// Fetch real settings from Supabase when the receipt loads
 onMounted(async () => {
   const { data } = await supabase.from('settings').select('*').single()
-  if (data) {
-    settings.value = data
-  }
+  if (data) settings.value = data
 })
 
-// Format date nicely (e.g., "14/12/2025, 9:30 PM")
+const formatCurrency = (amount) => {
+  return new Intl.NumberFormat('en-US').format(amount)
+}
+
 const formattedDate = computed(() => {
   if (!props.order?.created_at) return new Date().toLocaleString('en-GB')
   return new Date(props.order.created_at).toLocaleString('en-GB', {
@@ -31,6 +30,12 @@ const formattedDate = computed(() => {
     hour: 'numeric', minute: 'numeric', hour12: true
   })
 })
+
+const print = () => {
+  setTimeout(() => window.print(), 200)
+}
+
+defineExpose({ print })
 </script>
 
 <template>
@@ -38,65 +43,77 @@ const formattedDate = computed(() => {
     <div id="receipt-container" v-if="order">
       
       <div class="header">
-        <h2 class="brand">{{ settings.shop_name.toUpperCase() }}</h2>
-        
+        <h2 class="brand">{{ settings.shop_name?.toUpperCase() }}</h2>
         <div class="address">
           <p>{{ settings.address }}</p>
-          <p>Tel: {{ settings.phone }}</p>
+          <p v-if="settings.phone">Tel: {{ settings.phone }}</p>
         </div>
-        
-        <div class="divider">--------------------------------</div>
       </div>
 
-      <div class="info-row">
-        <span>Order #:</span>
-        <span>{{ order.id ? order.id.slice(0, 8).toUpperCase() : '---' }}</span>
-      </div>
-      <div class="info-row">
-        <span>Date:</span>
-        <span>{{ formattedDate }}</span>
+      <div class="separator"></div>
+
+      <div class="info-group">
+        <div class="info-row">
+          <span>Order #:</span>
+          <span>{{ order.id ? order.id.slice(0, 8).toUpperCase() : '---' }}</span>
+        </div>
+        <div class="info-row">
+          <span>Date:</span>
+          <span>{{ formattedDate }}</span>
+        </div>
       </div>
       
-      <div class="divider">--------------------------------</div>
+      <div class="separator"></div>
 
       <div class="items">
         <div v-for="(item, index) in order.drinks" :key="index" class="item-row">
           
-          <div class="item-name">{{ item.name }}</div>
-          
+          <div class="item-line">
+            <span class="item-name">{{ item.name }}</span>
+          </div>
+
           <div v-if="item.modifiers" class="item-modifiers">
-            <span v-if="item.modifiers.sugar && item.modifiers.sugar !== 'Normal'">
-              - Sugar: {{ item.modifiers.sugar }}
+            <template v-for="(val, key) in item.modifiers" :key="key">
+              <span v-if="val && val !== 'Normal'">
+                + {{ val }} ({{ key }})
+              </span>
+            </template>
+          </div>
+
+          <div class="item-math">
+            <span>{{ item.qty }} x </span>
+            
+            <span class="khmer-text">
+               {{ formatCurrency(item.price) }}
             </span>
-            <span v-if="item.modifiers.ice && item.modifiers.ice !== 'Normal'">
-              - Ice: {{ item.modifiers.ice }}
+
+            <span class="line-total khmer-text">
+               {{ formatCurrency(item.price * item.qty) }}
             </span>
           </div>
 
-          <div class="item-details">
-            <span>{{ item.qty }} x {{ item.price.toLocaleString() }}</span>
-            <span class="item-total">{{ (item.price * item.qty).toLocaleString() }}</span>
-          </div>
         </div>
       </div>
 
-      <div class="divider">--------------------------------</div>
+      <div class="separator"></div>
 
       <div class="total-row">
         <span class="total-label">TOTAL</span>
-        <span class="total-money">{{ order.total.toLocaleString() }}៛</span>
+        <span class="total-money khmer-text">{{ formatCurrency(order.total) }}៛</span>
       </div>
 
+      <div class="separator"></div>
+
       <div class="footer">
-        <div class="divider">--------------------------------</div>
+        <p class="footer-msg">{{ settings.printer_footer }}</p>
         
-        <p>{{ settings.printer_footer }}</p>
+        <div v-if="settings.wifi_pass" class="wifi-section">
+          <span class="wifi-label">WiFi Password:</span>
+          <span class="wifi-code">{{ settings.wifi_pass }}</span>
+        </div>
         
-        <p v-if="settings.wifi_pass" class="wifi">
-          WiFi: {{ settings.wifi_pass }}
-        </p>
-        
-        <br><br>.
+        <br>
+        <div class="cut-feed">.</div> 
       </div>
 
     </div>
@@ -104,96 +121,130 @@ const formattedDate = computed(() => {
 </template>
 
 <style>
-/* GLOBAL STYLES (Not Scoped) 
-   We need this to target 'body' and '#app' 
-*/
-
-/* 1. HIDE FROM SCREEN */
-#receipt-container {
-  display: none !important;
-}
-
-/* 2. PRINT STYLES */
+/* GLOBAL PRINT STYLES */
 @media print {
   
-  /* Hide the regular App UI (Sidebar, Menu, etc) */
-  body * {
-    visibility: hidden;
-  }
-  
-  /* Reset Body */
-  body {
-    background-color: white;
+  @page {
     margin: 0;
-    padding: 0;
+    size: 58mm auto;
   }
 
-  /* Show ONLY the receipt */
-  #receipt-container, 
-  #receipt-container * {
-    visibility: visible !important;
+  body * { visibility: hidden; }
+  
+  #receipt-container, #receipt-container * {
+    visibility: visible;
   }
 
   #receipt-container {
-    display: block !important;
     position: absolute;
     left: 0;
     top: 0;
-    width: 100%; /* Fills the 58mm paper */
-    margin: 0;
-    padding: 0 2px; /* Tiny padding safe zone */
+    width: 58mm;
+    padding: 0 4px;
+    box-sizing: border-box;
     
-    font-family: 'Courier New', monospace; /* Best for receipts */
-    font-size: 11px; /* Optimal reading size */
-    line-height: 1.2;
-    color: black;
     background: white;
+    color: black;
+    
+    /* FIX: Use Montserrat explicitly */
+    font-family: 'Montserrat', sans-serif;
+    font-size: 13px;
+    font-weight: 500; /* Medium weight */
+    line-height: 1.5; /* Good spacing */
   }
 
-  /* --- LAYOUT HELPERS --- */
+  /* KHMER FONT UTILITY */
+  .khmer-text {
+    font-family: 'Preahvihear', cursive; /* Specific for prices */
+    font-weight: 400; /* Khmer fonts are usually thick enough */
+  }
+
+  /* HEADER */
   .header { text-align: center; margin-bottom: 5px; }
-  .brand { font-size: 16px; font-weight: bold; margin-bottom: 2px; }
-  .address p { margin: 0; font-size: 9px; }
   
-  .divider { 
-    white-space: nowrap; 
-    overflow: hidden; 
-    margin: 5px 0; 
+  .brand { 
+    font-size: 20px; 
+    font-weight: 600; /* Semi-Bold (not full Bold) */
+    margin: 10px 0 5px 0;
+  }
+  
+  .address { font-size: 11px; }
+
+  /* SEPARATOR */
+  .separator {
+    border-bottom: 1px dashed #333;
+    margin: 8px 0;
+    width: 100%;
   }
 
-  .info-row { display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 2px; }
-  
-  .item-row { margin-bottom: 6px; }
-  .item-name { font-weight: bold; font-size: 11px; }
-  
-  .item-modifiers { 
-    font-size: 9px; 
-    padding-left: 8px; 
-    display: flex; 
-    flex-direction: column; 
-  }
-  
-  .item-details { 
-    display: flex; 
-    justify-content: space-between; 
-    padding-left: 8px; 
-    font-size: 10px; 
+  /* INFO */
+  .info-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    font-weight: 500;
   }
 
+  /* ITEMS */
+  .item-row { margin-bottom: 8px; }
+  
+  .item-name {
+    font-size: 14px;
+    font-weight: 600; /* Semi-bold for item name */
+  }
+
+  .item-modifiers {
+    font-size: 11px;
+    padding-left: 10px;
+    display: flex;
+    flex-direction: column;
+    color: #444;
+  }
+
+  .item-math {
+    display: flex;
+    justify-content: space-between; /* Pushes total to right */
+    padding-left: 10px; /* Indent slightly */
+    font-size: 13px;
+    margin-top: 2px;
+  }
+
+  .line-total {
+    font-weight: 600;
+  }
+
+  /* TOTAL SECTION */
   .total-row {
-    display: flex; justify-content: space-between; 
-    font-weight: bold; font-size: 14px; 
-    margin: 10px 0;
-    border-top: 1px dashed black;
-    border-bottom: 1px dashed black;
-    padding: 5px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 5px 0;
   }
 
-  .footer { 
-    text-align: center; 
-    font-size: 10px; 
-    padding-bottom: 50px; /* Long padding for cutter */
+  .total-label {
+    font-size: 16px;
+    font-weight: 600;
   }
-  .wifi { margin-top: 5px; font-weight: bold; }
+
+  .total-money {
+    font-size: 22px; 
+    /* No font-weight here because 'khmer-text' class handles it */
+  }
+
+  /* FOOTER */
+  .footer { text-align: center; font-size: 11px; }
+
+  .wifi-section {
+    margin-top: 10px;
+    border: 1px solid #000;
+    padding: 4px;
+    border-radius: 4px;
+  }
+  
+  .wifi-code { font-size: 14px; font-weight: 600; }
+
+  .cut-feed { padding-bottom: 30px; color: white; }
 }
+
+#receipt-container { display: none; }
 </style>
