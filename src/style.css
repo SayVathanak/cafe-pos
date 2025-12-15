@@ -1,28 +1,62 @@
 /* src/style.css */
 
-:root {
-  /* CHANGE: Update the font-family to match the one defined in vite.config.js */
-  /* This ensures the entire application uses the Montserrat/Preahvihear stack */
-  font-family: Montserrat, Preahvihear, system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+/* 1. Import Fonts manually from Google (Required for Tailwind v4) */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;900&family=Preahvihear&display=swap');
+
+/* 2. Initialize Tailwind v4 */
+@import "tailwindcss";
+
+/* 3. Configure Theme Variables (This replaces tailwind.config.js) */
+@theme {
+  /* Override the default sans font to include your stacks */
+  --font-sans: "Montserrat", "Preahvihear", system-ui, sans-serif;
+
+  /* Create a custom utility 'font-khmer' */
+  --font-khmer: "Preahvihear", sans-serif;
 }
 
-/* 1. Remove default browser margin (The 8px white border) */
+/* 4. Global Base Styles */
+:root {
+  /* Apply the font variable defined in the theme above */
+  font-family: var(--font-sans);
+  line-height: 1.5;
+  font-weight: 400;
+
+  /* Smooth scrolling for anchor links */
+  scroll-behavior: smooth;
+}
+
+/* 5. Layout Resets (Critical for your full-screen POS layout) */
 html,
 body {
   margin: 0;
   padding: 0;
   width: 100%;
   height: 100%;
-  /* Stop the whole page from scrolling */
+  overflow: hidden;
+  /* Prevent scrolling on the body (The app handles internal scrolling) */
 }
 
-/* 2. Make the app container fill the screen */
 #app {
   width: 100vw;
-  margin: 0;
-  padding: 0;
+  height: 100vh;
   display: block;
-  /* Remove default flex/grid centering if present */
+}
+
+/* src/style.css */
+
+@layer utilities {
+
+  /* Hide scrollbar for Chrome, Safari and Opera */
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Hide scrollbar for IE, Edge and Firefox */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    /* IE and Edge */
+    scrollbar-width: none;
+    /* Firefox */
+  }
 }

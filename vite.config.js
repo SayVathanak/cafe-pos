@@ -1,33 +1,12 @@
 import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
-import UnoCSS from "unocss/vite";
-import { presetUno, presetWebFonts } from "unocss";
+import tailwindcss from "@tailwindcss/vite";
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
   plugins: [
     vue(),
-    UnoCSS({
-      presets: [
-        presetUno(),
-        presetWebFonts({
-          provider: "google",
-          fonts: {
-            // Download Montserrat for standard text
-            sans: "Montserrat:400,600,700,900",
-
-            // Download Preahvihear for Khmer text
-            khmer: "Preahvihear",
-          },
-        }),
-      ],
-      // This sets the global default font stack
-      theme: {
-        fontFamily: {
-          sans: "Montserrat, Preahvihear, sans-serif",
-        },
-      },
-    }),
+    tailwindcss(),
     VitePWA({
       registerType: "autoUpdate",
       includeAssets: ["favicon.ico", "apple-touch-icon.png"],
