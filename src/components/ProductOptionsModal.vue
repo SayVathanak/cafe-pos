@@ -101,7 +101,7 @@ const handleAdd = () => {
                 v-for="opt in sugarOptions"
                 :key="opt"
                 @click="sugarLevel = opt"
-                class="py-2.5 text-xs font-bold rounded-xl border-none"
+                class="py-2.5 text-xs font-medium rounded-xl border-none"
                 :class="sugarLevel === opt
                   ? 'bg-black  text-white '
                   : 'bg-white  text-slate-600 '"
@@ -120,7 +120,7 @@ const handleAdd = () => {
                 v-for="opt in iceOptions"
                 :key="opt"
                 @click="iceLevel = opt"
-                class="py-2.5 text-xs font-bold rounded-xl border-none"
+                class="py-2.5 text-xs font-medium rounded-xl border-none"
                 :class="iceLevel === opt
                   ? 'bg-black text-white '
                   : 'bg-white text-slate-600 '"
