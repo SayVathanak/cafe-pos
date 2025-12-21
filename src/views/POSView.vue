@@ -119,7 +119,7 @@ onMounted(fetchMenu);
         </div>
       </div>
 
-      <section class="flex-1 overflow-y-auto p-4 scroll-smooth pb-24 lg:pb-4" id="menu-grid">
+      <section class="flex-1 overflow-y-auto md:p-4 scroll-smooth pb-24 lg:pb-4" id="menu-grid">
         <div v-if="loading" class="h-64 flex items-center justify-center">
           <div class="w-6 h-6 border-2 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div>
         </div>
@@ -128,7 +128,7 @@ onMounted(fetchMenu);
           <p class="text-xs font-medium uppercase tracking-widest">No items found</p>
         </div>
 
-        <div v-else class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 lg:gap-4">
+        <div v-else class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 lg:gap-4">
           <CardDrink 
             v-for="drink in filteredMenu" 
             :key="drink.id" 
