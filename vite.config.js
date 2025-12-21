@@ -10,14 +10,19 @@ export default defineConfig({
     VitePWA({
       registerType: "autoUpdate",
       includeAssets: ["favicon.ico", "apple-touch-icon.png"],
+      // 👇 ADD THIS SECTION
+      workbox: {
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"], // Cache everything
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // Increase limit to 5MB (Default is 2MB)
+      },
       manifest: {
         name: "SAYON Coffee",
         short_name: "SAYON",
-        description: "SAYON Coffee",
+        description: "SAYON Coffee POS",
         theme_color: "#ffffff",
         background_color: "#ffffff",
-        display: "standalone", // <--- This hides the browser URL bar!
-        orientation: "landscape", // <--- Forces landscape mode on tablets
+        display: "standalone",
+        orientation: "landscape",
         icons: [
           {
             src: "pwa-192x192.png",

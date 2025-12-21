@@ -35,7 +35,7 @@ const handleLogin = async () => {
     
     <div class="w-full max-w-sm bg-white border border-slate-100 p-8 rounded-2xl shadow-xl shadow-slate-200/50 relative overflow-hidden">
       
-      <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-black via-slate-700 to-black"></div>
+      <div class="absolute top-0 left-0 w-full h-1 bg-linear-to-r from-black via-slate-700 to-black"></div>
 
       <div class="mb-8 text-center">
         <div class="w-12 h-12 bg-black text-white rounded-xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-black/20">

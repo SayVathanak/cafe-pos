@@ -4,7 +4,9 @@ import { supabase } from "../services/supabase";
 export const useCartStore = defineStore("cart", {
   // 1. STATE
   state: () => ({
-    items: [], // [{ id, name, price, qty, modifiers }]
+    items: [], // Current cart items
+    // Load offline queue from LocalStorage on startup
+    offlineQueue: JSON.parse(localStorage.getItem("offlineOrders")) || [],
     customerParams: null,
   }),
 
@@ -20,18 +22,20 @@ export const useCartStore = defineStore("cart", {
     totalItems: (state) => {
       return state.items.reduce((count, item) => count + item.qty, 0);
     },
+
+    // Helper to check connection status
+    isOffline: () => !navigator.onLine,
   },
 
   // 3. ACTIONS
   actions: {
     addToCart(drink) {
-      // Create a unique "Signature" for comparison
-      // Example: "123-Normal-Less Ice"
+      // Create a unique "Signature" based on ID and modifiers
       const sugar = drink.modifiers?.sugar || "Normal";
       const ice = drink.modifiers?.ice || "Normal";
       const signature = `${drink.id}-${sugar}-${ice}`;
 
-      // Find item with same signature
+      // Check if this exact drink combination exists
       const existingItem = this.items.find(
         (item) => item.signature === signature
       );
@@ -41,11 +45,12 @@ export const useCartStore = defineStore("cart", {
       } else {
         this.items.push({
           id: drink.id,
-          signature: signature, // Store signature
+          signature: signature,
           name: drink.name,
           price: drink.price,
+          image_url: drink.image_url, // <--- FIX: Saves image for Sidebar
           qty: 1,
-          modifiers: { sugar, ice }, // Save modifiers to display later
+          modifiers: { sugar, ice },
         });
       }
     },
@@ -75,35 +80,96 @@ export const useCartStore = defineStore("cart", {
       this.items = [];
     },
 
-    // --- CHECKOUT ACTION (Updated for Printing) ---
-    async checkout() {
-      if (this.items.length === 0) return null;
+    // --- OFFLINE SYNC LOGIC ---
+    async syncOfflineOrders() {
+      if (this.offlineQueue.length === 0) return;
 
+      console.log(
+        `Attempting to sync ${this.offlineQueue.length} offline orders...`
+      );
+      const ordersToSync = [...this.offlineQueue];
+
+      for (const order of ordersToSync) {
+        // Remove the temporary ID so Supabase generates a real one
+        const { id, ...cleanPayload } = order;
+
+        const { error } = await supabase.from("orders").insert(cleanPayload);
+
+        if (!error) {
+          // If successful, remove this specific order from the queue
+          this.offlineQueue = this.offlineQueue.filter(
+            (o) => o.id !== order.id
+          );
+        } else {
+          console.error("Failed to sync order:", order.id, error.message);
+        }
+      }
+
+      // Update LocalStorage with whatever is left
+      localStorage.setItem("offlineOrders", JSON.stringify(this.offlineQueue));
+
+      if (this.offlineQueue.length === 0) {
+        // Optional: Trigger a toast here saying "Sync Complete"
+        console.log("All offline orders synced!");
+      }
+    },
+
+    // --- CHECKOUT (Handles Online + Offline) ---
+    async checkout(tempOrder = null) {
+      // If cart is empty and we aren't retrying a temp order, stop.
+      if (this.items.length === 0 && !tempOrder) return null;
+
+      // 1. Prepare Payload
+      // If it's a new order, generate a temporary ID (OFF-...) just in case we are offline
+      const payload = {
+        id: tempOrder ? tempOrder.id : `OFF-${Date.now()}`,
+        drinks: tempOrder ? tempOrder.drinks : this.items,
+        total_amount: tempOrder ? tempOrder.total : this.cartTotal, // <--- FIX: Matches DB Column
+        status: "completed",
+        created_at: new Date().toISOString(),
+      };
+
+      // 2. CHECK CONNECTION
+      if (!navigator.onLine) {
+        console.log("Offline Mode: Saving to queue.");
+        this.offlineQueue.push(payload);
+        localStorage.setItem(
+          "offlineOrders",
+          JSON.stringify(this.offlineQueue)
+        );
+
+        if (!tempOrder) this.clearCart();
+        return payload; // Return payload so Receipt prints!
+      }
+
+      // 3. TRY ONLINE INSERT
       try {
-        // 1. Prepare data
-        const orderData = {
-          drinks: this.items,
-          total: this.cartTotal,
-          status: "completed", // Mark as done immediately for simple POS
-        };
+        // Remove the temporary ID so Postgres generates a real numeric ID
+        const { id, ...cleanPayload } = payload;
 
-        // 2. Send to Supabase AND return the created row (.select())
         const { data, error } = await supabase
           .from("orders")
-          .insert(orderData)
-          .select(); // <--- CRITICAL: asks DB to send back the new row
+          .insert(cleanPayload)
+          .select()
+          .single();
 
         if (error) throw error;
 
-        // 3. Clear the cart
-        this.clearCart();
-
-        // 4. Return the Order Object (contains ID and Date) for the printer
-        return data[0];
+        // Success!
+        if (!tempOrder) this.clearCart();
+        return data;
       } catch (err) {
-        console.error("Checkout failed:", err.message);
-        alert("Transaction failed: " + err.message);
-        return null;
+        console.error("API Error, falling back to offline queue:", err.message);
+
+        // Fallback: If API fails (server error/timeout), save to queue anyway
+        this.offlineQueue.push(payload);
+        localStorage.setItem(
+          "offlineOrders",
+          JSON.stringify(this.offlineQueue)
+        );
+
+        if (!tempOrder) this.clearCart();
+        return payload;
       }
     },
   },

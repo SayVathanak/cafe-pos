@@ -1,130 +1,136 @@
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted } from 'vue'
 import { supabase } from '../../services/supabase'
 import { Bar } from 'vue-chartjs'
 import { Chart as ChartJS, Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale } from 'chart.js'
-import { ShoppingBag, ArrowUpRight } from 'lucide-vue-next'
+import { TrendingUp, DollarSign, ShoppingBag, CreditCard, CalendarDays } from 'lucide-vue-next'
 
 ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale)
 
-const loading = ref(true)
-const timeRange = ref('today')
 const stats = ref({ revenue: 0, orders: 0, avg: 0 })
-const topProducts = ref([])
-const recentOrders = ref([])
 const chartData = ref({ labels: [], datasets: [] })
+
+const getGradient = (ctx, chartArea) => {
+  const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top)
+  // Tailwind colors: Slate-900 (#0f172a) to Slate-500 (#64748b)
+  gradient.addColorStop(0, '#0f172a') 
+  gradient.addColorStop(1, '#64748b') 
+  return gradient
+}
 
 const chartOptions = {
   responsive: true,
   maintainAspectRatio: false,
-  plugins: { legend: { display: false }, tooltip: { 
-    backgroundColor: '#000', padding: 8, titleFont: { size: 10 }, bodyFont: { size: 10 }, cornerRadius: 4
-  }},
+  plugins: { legend: { display: false } },
   scales: {
-    y: { border: { display: false }, grid: { color: '#f1f5f9' }, ticks: { font: { size: 9 }, color: '#94a3b8' } },
-    x: { grid: { display: false }, ticks: { font: { size: 9 }, color: '#94a3b8' } }
+    x: { grid: { display: false }, ticks: { font: { size: 10, family: 'monospace' }, color: '#94a3b8' } },
+    y: { border: { display: false }, grid: { color: '#f1f5f9' }, ticks: { font: { size: 10, family: 'monospace' }, color: '#94a3b8' } }
   }
 }
 
 const fetchData = async () => {
-  loading.value = true
-  const now = new Date(); let start = new Date(), end = new Date(), groupBy = 'hour'
-  if (timeRange.value === 'today') { start.setHours(0,0,0,0); end.setHours(23,59,59,999); }
-  else if (timeRange.value === 'week') { const day = now.getDay() || 7; start.setHours(-24 * (day - 1)); groupBy = 'day'; }
-  else if (timeRange.value === 'month') { start.setDate(1); start.setHours(0,0,0,0); groupBy = 'day'; }
-
-  const { data: orders } = await supabase.from('orders').select('*').gte('created_at', start.toISOString()).lte('created_at', end.toISOString()).order('created_at', { ascending: true })
-
-  if (orders && orders.length) {
+  const { data: orders } = await supabase.from('orders').select('total_amount')
+  if (orders && orders.length > 0) {
+    stats.value.revenue = orders.reduce((sum, o) => sum + o.total_amount, 0)
     stats.value.orders = orders.length
-    stats.value.revenue = orders.reduce((acc, o) => acc + o.total, 0)
-    stats.value.avg = Math.round(stats.value.revenue / stats.value.orders)
-
-    const map = {}, productMap = {}
-    orders.forEach(o => {
-      const d = new Date(o.created_at)
-      const k = groupBy === 'hour' ? `${d.getHours()}:00` : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
-      map[k] = (map[k] || 0) + o.total
-      o.drinks?.forEach(d => {
-        if (!productMap[d.name]) productMap[d.name] = { ...d, qty: 0, revenue: 0 }
-        productMap[d.name].qty += d.qty; productMap[d.name].revenue += (d.price * d.qty)
-      })
-    })
-
-    chartData.value = { labels: Object.keys(map), datasets: [{ data: Object.values(map), backgroundColor: '#18181b', borderRadius: 2, barPercentage: 0.5 }] }
-    topProducts.value = Object.values(productMap).sort((a,b) => b.qty - a.qty).slice(0, 5)
-    recentOrders.value = [...orders].reverse().slice(0, 5)
-  } else {
-    stats.value = { revenue: 0, orders: 0, avg: 0 }; chartData.value = { labels: [], datasets: [] }; topProducts.value = []; recentOrders.value = []
+    stats.value.avg = Math.round(stats.value.revenue / (stats.value.orders || 1))
   }
-  loading.value = false
+
+  const thirtyDaysAgo = new Date(); thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+  const { data: chartStats } = await supabase.rpc('get_daily_sales_stats', {
+    start_date: thirtyDaysAgo.toISOString(),
+    end_date: new Date().toISOString()
+  })
+
+  if (chartStats) {
+    chartData.value = {
+      labels: chartStats.map(s => {
+        const d = new Date(s.sale_date); 
+        return `${d.getDate()}/${d.getMonth()+1}`
+      }),
+      datasets: [{
+        label: 'Revenue',
+        data: chartStats.map(s => s.total_revenue),
+        backgroundColor: (context) => {
+          const chart = context.chart
+          const { ctx, chartArea } = chart
+          if (!chartArea) return null
+          return getGradient(ctx, chartArea)
+        },
+        borderRadius: 4,
+        barThickness: 'flex',
+        maxBarThickness: 40
+      }]
+    }
+  }
 }
 
-watch(timeRange, fetchData); onMounted(fetchData)
+onMounted(fetchData)
 </script>
 
 <template>
-  <div class="space-y-4">
-    <div class="flex items-center justify-between">
-      <div><h2 class="text-lg font-medium text-slate-900">Dashboard</h2></div>
-      <div class="flex bg-white rounded-lg p-0.5 border border-slate-200">
-        <button v-for="t in ['today', 'week', 'month']" :key="t" @click="timeRange = t" class="px-3 py-1 rounded-md text-[10px] font-medium uppercase transition-all" :class="timeRange === t ? 'bg-black text-white' : 'text-slate-500 hover:text-black'">{{ t }}</button>
+  <div class="space-y-6">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div>
+        <h2 class="text-2xl font-medium tracking-tight text-slate-900">Dashboard</h2>
+        <p class="text-xs text-slate-500 mt-1">Daily overview of your store performance.</p>
+      </div>
+      <div class="self-start sm:self-auto flex items-center gap-2 bg-white px-3 py-1.5 rounded-full border border-slate-200 shadow-sm text-xs font-medium text-slate-600">
+        <CalendarDays class="w-3.5 h-3.5 text-slate-400" />
+        {{ new Date().toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' }) }}
       </div>
     </div>
 
-    <div class="grid grid-cols-3 gap-3">
-      <div v-for="(stat, key) in { 'Revenue': stats.revenue.toLocaleString() + '៛', 'Orders': stats.orders, 'Avg': stats.avg.toLocaleString() + '៛' }" :key="key" 
-        class="bg-white px-4 py-3 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between group">
-        <div>
-          <p class="text-[10px] uppercase font-medium text-slate-400 tracking-wider">{{ key }}</p>
-          <p class="text-sm font-medium text-slate-900 mt-0.5 font-mono">{{ stat }}</p>
-        </div>
-        <div class="w-6 h-6 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-black group-hover:text-white transition-colors">
-          <ArrowUpRight class="w-3 h-3" />
-        </div>
-      </div>
-    </div>
-
-    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm h-56 relative">
-      <h3 class="font-medium text-xs text-slate-900 absolute top-4 left-4">Sales Trend</h3>
-      <div v-if="!loading" class="h-full w-full pt-6"><Bar :data="chartData" :options="chartOptions" /></div>
-    </div>
-
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-      <div class="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col h-full">
-        <div class="px-4 py-3 border-b border-slate-100"><h3 class="font-medium text-xs">Top Items</h3></div>
-        <div class="p-2 flex-1 space-y-1 max-h-80 overflow-y-auto scrollbar-hide">
-          <div v-for="(item, i) in topProducts" :key="item.name" class="flex items-center justify-between px-3 py-2 hover:bg-slate-50 rounded-lg">
-             <div class="flex items-center gap-3">
-               <span class="w-5 h-5 rounded-md bg-slate-100 flex items-center justify-center text-[10px] font-medium text-slate-500">{{ i + 1 }}</span>
-               <div>
-                 <div class="font-medium text-xs text-slate-900">{{ item.name }}</div>
-                 <div class="text-[10px] text-slate-400 font-medium">{{ item.qty }} Sold</div>
-               </div>
-             </div>
-             <div class="font-khmer text-xs font-medium">{{ item.revenue.toLocaleString() }}៛</div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm relative overflow-hidden group hover:border-slate-200 transition-all">
+        <div class="relative z-10">
+          <p class="text-[10px] uppercase font-medium text-slate-400 tracking-widest mb-2">Total Revenue</p>
+          <div class="flex items-baseline gap-1">
+            <span class="text-2xl font-medium text-slate-900">{{ stats.revenue.toLocaleString() }}</span>
+            <span class="text-sm font-medium text-slate-400">៛</span>
           </div>
-          <div v-if="!topProducts.length" class="py-4 text-center text-[10px] text-slate-400 uppercase">No Data</div>
+        </div>
+        <div class="absolute right-4 top-4 w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-slate-900 group-hover:text-white transition-colors duration-300">
+          <DollarSign class="w-5 h-5" />
         </div>
       </div>
 
-      <div class="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col h-full">
-        <div class="px-4 py-3 border-b border-slate-100"><h3 class="font-medium text-xs">Recent Orders</h3></div>
-        <div class="p-2 flex-1 space-y-1 max-h-80 overflow-y-auto scrollbar-hide">
-          <div v-for="order in recentOrders" :key="order.id" class="flex items-center justify-between px-3 py-2 hover:bg-slate-50 rounded-lg">
-            <div class="flex items-center gap-3">
-              <div class="w-6 h-6 rounded-full bg-slate-900 text-white flex items-center justify-center"><ShoppingBag class="w-3 h-3" /></div>
-              <div>
-                <div class="font-medium text-xs text-slate-900">#{{ order.id.toString().slice(0,4) }}</div>
-                <div class="text-[10px] text-slate-400 font-mono">{{ new Date(order.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) }}</div>
-              </div>
-            </div>
-            <div class="text-right">
-              <div class="font-medium text-xs font-mono">{{ order.total.toLocaleString() }}៛</div>
-              <div class="text-[10px] text-slate-400">{{ order.drinks.length }} Items</div>
-            </div>
+      <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm relative overflow-hidden group hover:border-slate-200 transition-all">
+        <div class="relative z-10">
+          <p class="text-[10px] uppercase font-medium text-slate-400 tracking-widest mb-2">Total Orders</p>
+          <p class="text-2xl font-medium text-slate-900 ">{{ stats.orders }}</p>
+        </div>
+        <div class="absolute right-4 top-4 w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-slate-900 group-hover:text-white transition-colors duration-300">
+          <ShoppingBag class="w-5 h-5" />
+        </div>
+      </div>
+
+      <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm relative overflow-hidden group hover:border-slate-200 transition-all sm:col-span-2 lg:col-span-1">
+        <div class="relative z-10">
+          <p class="text-[10px] uppercase font-medium text-slate-400 tracking-widest mb-2">Avg. Order Value</p>
+          <div class="flex items-baseline gap-1">
+            <span class="text-2xl font-medium text-slate-900 ">{{ stats.avg.toLocaleString() }}</span>
+            <span class="text-sm font-medium text-slate-400">៛</span>
           </div>
-          <div v-if="!recentOrders.length" class="py-4 text-center text-[10px] text-slate-400 uppercase">No Orders</div>
+        </div>
+        <div class="absolute right-4 top-4 w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-slate-900 group-hover:text-white transition-colors duration-300">
+          <CreditCard class="w-5 h-5" />
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+      <div class="mb-6 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <div class="p-1.5 bg-slate-50 rounded-md border border-slate-100"><TrendingUp class="w-4 h-4 text-slate-600" /></div>
+          <h3 class="font-medium text-sm text-slate-900">Revenue Trends (30 Days)</h3>
+        </div>
+      </div>
+      <div class="h-75 w-full">
+        <Bar v-if="chartData.labels.length" :data="chartData" :options="chartOptions" />
+        <div v-else class="h-full flex flex-col items-center justify-center text-slate-400 gap-2">
+          <div class="w-10 h-10 border-2 border-slate-100 border-t-slate-300 rounded-full animate-spin"></div>
+          <span class="text-xs">Loading analytics...</span>
         </div>
       </div>
     </div>

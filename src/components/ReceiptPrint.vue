@@ -1,53 +1,56 @@
 <script setup>
-import { computed, ref, onMounted, nextTick } from 'vue'
-import { supabase } from '../services/supabase'
+import { computed, ref, onMounted, nextTick } from "vue";
+import { supabase } from "../services/supabase";
 
 const props = defineProps({
-  order: Object
-})
+  order: Object,
+});
 
 const settings = ref({
-  shop_name: 'SAYON COFFEE',
-  address: 'Phnom Penh, Cambodia',
-  phone: '012-345-678',
-  wifi_pass: '',
-  printer_footer: 'Thank you!'
-})
+  shop_name: "SAYON COFFEE",
+  address: "Phnom Penh, Cambodia",
+  phone: "012-345-678",
+  wifi_pass: "",
+  printer_footer: "Thank you!",
+});
 
 onMounted(async () => {
-  const { data } = await supabase.from('settings').select('*').single()
-  if (data) settings.value = data
-})
+  const { data } = await supabase.from("settings").select("*").single();
+  if (data) settings.value = data;
+});
 
 const formatCurrency = (amount) => {
-  return new Intl.NumberFormat('en-US').format(amount)
-}
+  return new Intl.NumberFormat("en-US").format(amount);
+};
 
 const formattedDate = computed(() => {
-  if (!props.order?.created_at) return new Date().toLocaleString('en-GB')
-  return new Date(props.order.created_at).toLocaleString('en-GB', {
-    day: 'numeric', month: 'numeric', year: 'numeric',
-    hour: 'numeric', minute: 'numeric', hour12: true
-  })
-})
+  if (!props.order?.created_at) return new Date().toLocaleString("en-GB");
+  return new Date(props.order.created_at).toLocaleString("en-GB", {
+    day: "numeric",
+    month: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "numeric",
+    hour12: true,
+  });
+});
 
 const print = async () => {
   // 1. Wait for Vue to update the DOM with the new order data
-  await nextTick()
-  
+  await nextTick();
+
   // 2. Small delay to ensure styles/fonts are applied
   setTimeout(() => {
-    window.print()
-  }, 300)
-}
+    window.print();
+  }, 300);
+};
 
-defineExpose({ print })
+defineExpose({ print });
 </script>
 
 <template>
   <Teleport to="body">
     <div id="receipt-container" v-if="order">
-      
       <div class="header">
         <h2 class="brand">{{ settings.shop_name?.toUpperCase() }}</h2>
         <div class="address">
@@ -61,19 +64,24 @@ defineExpose({ print })
       <div class="info-group">
         <div class="info-row">
           <span>Order #:</span>
-          <span>{{ order.id ? order.id.slice(0, 8).toUpperCase() : '---' }}</span>
+          <span>{{
+            order.id ? order.id.slice(0, 8).toUpperCase() : "---"
+          }}</span>
         </div>
         <div class="info-row">
           <span>Date:</span>
           <span>{{ formattedDate }}</span>
         </div>
       </div>
-      
+
       <div class="separator"></div>
 
       <div class="items">
-        <div v-for="(item, index) in order.drinks" :key="index" class="item-row">
-          
+        <div
+          v-for="(item, index) in order.drinks"
+          :key="index"
+          class="item-row"
+        >
           <div class="item-line">
             <span class="item-name">{{ item.name }}</span>
           </div>
@@ -88,16 +96,15 @@ defineExpose({ print })
 
           <div class="item-math">
             <span>{{ item.qty }} x </span>
-            
+
             <span class="khmer-text">
-               {{ formatCurrency(item.price) }}
+              {{ formatCurrency(item.price) }}
             </span>
 
             <span class="line-total khmer-text">
-               {{ formatCurrency(item.price * item.qty) }}
+              {{ formatCurrency(item.price * item.qty) }}
             </span>
           </div>
-
         </div>
       </div>
 
@@ -105,23 +112,24 @@ defineExpose({ print })
 
       <div class="total-row">
         <span class="total-label">TOTAL</span>
-        <span class="total-money khmer-text">{{ formatCurrency(order.total) }}៛</span>
+        <span class="total-money khmer-text">
+          {{ formatCurrency(order.total || order.total_amount) }}៛
+        </span>
       </div>
 
       <div class="separator"></div>
 
       <div class="footer">
         <p class="footer-msg">{{ settings.printer_footer }}</p>
-        
+
         <div v-if="settings.wifi_pass" class="wifi-section">
           <span class="wifi-label">WiFi Password:</span>
           <span class="wifi-code">{{ settings.wifi_pass }}</span>
         </div>
-        
-        <br>
-        <div class="cut-feed">.</div> 
-      </div>
 
+        <br />
+        <div class="cut-feed">.</div>
+      </div>
     </div>
   </Teleport>
 </template>
@@ -139,7 +147,6 @@ defineExpose({ print })
 
 /* 2. Print Specifics */
 @media print {
-  
   /* RESET PAGE */
   @page {
     margin: 0;
@@ -162,9 +169,9 @@ defineExpose({ print })
     margin: 0;
     padding: 2px 4px;
     background: white;
-    
+
     /* FONTS */
-    font-family: 'Montserrat', sans-serif;
+    font-family: "Montserrat", sans-serif;
     color: black;
     font-size: 13px;
     font-weight: 500; /* Medium */
@@ -173,21 +180,26 @@ defineExpose({ print })
 
   /* KHMER FONT OVERRIDE */
   .khmer-text {
-    font-family: 'Preahvihear', cursive;
-    font-weight: 400; 
+    font-family: "Preahvihear", cursive;
+    font-weight: 400;
   }
 
   /* --- LAYOUT CLASSES --- */
-  
-  .header { text-align: center; margin-bottom: 5px; }
-  
-  .brand { 
-    font-size: 20px; 
+
+  .header {
+    text-align: center;
+    margin-bottom: 5px;
+  }
+
+  .brand {
+    font-size: 20px;
     font-weight: 700; /* Bold only for title */
     margin: 10px 0 5px 0;
   }
-  
-  .address { font-size: 11px; }
+
+  .address {
+    font-size: 11px;
+  }
 
   .separator {
     border-bottom: 1px dashed #000;
@@ -201,8 +213,10 @@ defineExpose({ print })
     font-size: 11px;
   }
 
-  .item-row { margin-bottom: 8px; }
-  
+  .item-row {
+    margin-bottom: 8px;
+  }
+
   .item-name {
     font-size: 14px;
     font-weight: 600; /* Semi-bold */
@@ -241,11 +255,14 @@ defineExpose({ print })
   }
 
   .total-money {
-    font-size: 22px; 
+    font-size: 22px;
     /* Font family handled by khmer-text class */
   }
 
-  .footer { text-align: center; font-size: 11px; }
+  .footer {
+    text-align: center;
+    font-size: 11px;
+  }
 
   .wifi-section {
     margin-top: 10px;
@@ -253,9 +270,15 @@ defineExpose({ print })
     padding: 4px;
     border-radius: 4px;
   }
-  
-  .wifi-code { font-size: 14px; font-weight: 600; }
 
-  .cut-feed { padding-bottom: 30px; color: white; }
+  .wifi-code {
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .cut-feed {
+    padding-bottom: 30px;
+    color: white;
+  }
 }
 </style>
