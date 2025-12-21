@@ -24,10 +24,34 @@ const handleUpload = async (e) => {
 }
 
 const handleSave = async () => {
-  if (!form.value.name || !form.value.price) return; loading.value = true
-  const query = form.value.id ? supabase.from('drinks').update({...form.value}).eq('id', form.value.id) : supabase.from('drinks').insert({...form.value, available: true})
-  const { error } = await query; loading.value = false; if (!error) { emit('saved'); emit('close') } else alert(error.message)
+  if (!form.value.name || !form.value.price) return; 
+  loading.value = true
+  
+  // 1. Create a clean copy of the data
+  const payload = { ...form.value }
+
+  let query;
+
+  if (payload.id) {
+    // UPDATE: We have an ID, so update the existing row
+    query = supabase.from('drinks').update(payload).eq('id', payload.id)
+  } else {
+    // CREATE: We MUST remove 'id' so Supabase generates a new UUID
+    delete payload.id 
+    query = supabase.from('drinks').insert({ ...payload, available: true })
+  }
+
+  const { error } = await query; 
+  loading.value = false; 
+  
+  if (!error) { 
+    emit('saved'); 
+    emit('close') 
+  } else {
+    alert(error.message)
+  }
 }
+
 
 const handleDelete = async () => {
   if(!confirm('Delete item?')) return; loading.value = true;
