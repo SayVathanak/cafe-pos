@@ -72,12 +72,9 @@ const handleAdd = () => {
   <transition name="modal">
     <div 
       v-if="isOpen" 
-      class="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4"
+      class="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 backdrop-blur-sm"
+      @click="$emit('close')"
     >
-      <div 
-        class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" 
-        @click="$emit('close')"
-      ></div>
       
       <div 
         class="relative bg-white w-full sm:max-w-md rounded-t-[32px] sm:rounded-[32px] overflow-hidden shadow-2xl transition-all"
