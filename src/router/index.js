@@ -3,6 +3,7 @@ import { supabase } from "../services/supabase"; // Import supabase
 import POSView from "../views/POSView.vue";
 import LoginView from "../views/LoginView.vue"; // Import Login
 import AdminLayout from "../views/admin/AdminLayout.vue";
+import AdminOrders from "../views/admin/AdminOrders.vue";
 import AdminProducts from "../views/admin/AdminProducts.vue";
 import AdminDashboard from "../views/admin/AdminDashboard.vue";
 import AdminSettings from "../views/admin/AdminSettings.vue";
@@ -20,6 +21,11 @@ const routes = [
         path: "", // Default path (Empty)
         name: "admin-dashboard",
         component: AdminDashboard, // <--- Set Dashboard as default
+      },
+      {
+        path: "orders", // This matches /admin/orders <--- ADD THIS
+        name: "AdminOrders",
+        component: AdminOrders,
       },
       { path: "products", name: "admin-products", component: AdminProducts },
       {

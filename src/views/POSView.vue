@@ -111,9 +111,6 @@ onUnmounted(() => {
     <main class="flex-1 flex flex-col min-w-0 relative">
       <header class="h-20 bg-white/80 backdrop-blur-lg px-6 flex items-center justify-between sticky top-0 z-30 shrink-0 border-b border-slate-200/50">
         <div class="flex items-center gap-6">
-          <div class="lg:hidden">
-            <button @click="router.push('/admin')"><Menu class="w-6 h-6 text-slate-500" /></button>
-          </div>
           <button @click="router.push('/admin')" class="text-left group">
             <div class="flex flex-col items-start">
               <div class="text-xl font-medium tracking-tight font-khmer group-hover:text-slate-600 transition-colors">សាយ័ណ្ហកាហ្វេ</div>
