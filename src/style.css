@@ -1,7 +1,8 @@
 /* src/style.css */
 
 /* 1. Import Fonts manually from Google (Required for Tailwind v4) */
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;900&family=Preahvihear&display=swap');
+/* ✅ Added 'Hanuman' to the import list below */
+@import url('https://fonts.googleapis.com/css2?family=Hanuman:wght@400;700&family=Montserrat:wght@400;600;700;900&family=Preahvihear&display=swap');
 
 /* 2. Initialize Tailwind v4 */
 @import "tailwindcss";
@@ -9,10 +10,13 @@
 /* 3. Configure Theme Variables (This replaces tailwind.config.js) */
 @theme {
   /* Override the default sans font to include your stacks */
-  --font-sans: "Montserrat", "Preahvihear", system-ui, sans-serif;
+  /* ✅ Added "Hanuman" here so it works automatically for Khmer text mixed with English */
+  --font-sans: "Montserrat", "Hanuman", "Preahvihear", system-ui, sans-serif;
 
   /* Create a custom utility 'font-khmer' */
-  --font-khmer: "Preahvihear", sans-serif;
+  /* ✅ Added "Hanuman" here */
+  --font-khmer: "Hanuman", "Preahvihear", sans-serif;
+  --font-preahvihear: "Preahvihear", sans-serif;
 }
 
 /* 4. Global Base Styles */
@@ -42,8 +46,6 @@ body {
   height: 100vh;
   display: block;
 }
-
-/* src/style.css */
 
 @layer utilities {
 
