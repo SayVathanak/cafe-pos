@@ -63,6 +63,7 @@ const fetchStores = async () => {
 }
 
 // 2. Fetch Dashboard Data
+// 2. Fetch Dashboard Data
 const fetchDashboardData = async () => {
   loading.value = true
   
@@ -89,8 +90,14 @@ const fetchDashboardData = async () => {
     .gte('created_at', prevStartDate.toISOString())
     .lt('created_at', startDate.toISOString())
 
-  // --- FILTER BY STORE IF SELECTED ---
-  if (selectedStore.value !== 'all') {
+  // --- 🔒 SECURITY FIX: FILTER BY STORE ---
+  if (userStore.role !== 'admin') {
+    // IF STAFF: Force them to see ONLY their store
+    currentQuery = currentQuery.eq('store_id', userStore.storeId)
+    prevQuery = prevQuery.eq('store_id', userStore.storeId)
+  } 
+  else if (selectedStore.value !== 'all') {
+    // IF ADMIN: Respect the dropdown selection
     currentQuery = currentQuery.eq('store_id', selectedStore.value)
     prevQuery = prevQuery.eq('store_id', selectedStore.value)
   }
@@ -121,16 +128,20 @@ const fetchDashboardData = async () => {
     .order('created_at', { ascending: false })
     .limit(5)
   
-  if (selectedStore.value !== 'all') {
+  // --- 🔒 SECURITY FIX: RECENT ORDERS ---
+  if (userStore.role !== 'admin') {
+    recentQuery = recentQuery.eq('store_id', userStore.storeId)
+  } else if (selectedStore.value !== 'all') {
     recentQuery = recentQuery.eq('store_id', selectedStore.value)
   }
+
   const { data: recentData } = await recentQuery
   recentOrders.value = recentData || []
 
-  // Top Products Logic
+  // Top Products Logic (Automatically fixed because 'currentOrders' is now filtered)
   const productMap = {}
   currentOrders?.forEach(order => {
-    const items = order.drinks || [] // Assuming JSONB structure
+    const items = order.drinks || [] 
     items.forEach(item => {
       // Handle legacy string JSON or object
       const name = typeof item === 'string' ? JSON.parse(item).name : item.name
@@ -144,7 +155,7 @@ const fetchDashboardData = async () => {
   })
   topProducts.value = Object.values(productMap).sort((a, b) => b.qty - a.qty).slice(0, 5)
 
-  // Chart Data
+  // Chart Data (Automatically fixed because 'currentOrders' is now filtered)
   const chartMap = {}
   currentOrders?.forEach(order => {
     const key = new Date(order.created_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })

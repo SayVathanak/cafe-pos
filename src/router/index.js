@@ -58,6 +58,11 @@ const routes = [
       },
     ],
   },
+  {
+    path: "/setup-branch",
+    name: "BranchSetup",
+    component: () => import("../views/BranchSetup.vue"),
+  },
 ];
 
 const router = createRouter({

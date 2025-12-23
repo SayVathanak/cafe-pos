@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from "vue";
 import { supabase } from "../../services/supabase";
-import { useUserStore } from "../../stores/userStore"; // Import User Store
+import { useUserStore } from "../../stores/userStore"; 
 import {
   Search,
   Eye,
@@ -33,6 +33,7 @@ const fetchStores = async () => {
   stores.value = data || [];
 };
 
+// ✅ FIXED: Secure Fetch Logic
 const fetchOrders = async () => {
   loading.value = true;
 
@@ -41,8 +42,13 @@ const fetchOrders = async () => {
     .select("*")
     .order("created_at", { ascending: false });
 
-  // If a specific store is selected, filter by it
-  if (selectedStore.value !== "all") {
+  // --- 🔒 SECURITY CHECK ---
+  if (userStore.role !== 'admin') {
+    // If Staff: FORCE them to see only their store
+    query = query.eq("store_id", userStore.storeId);
+  } 
+  else if (selectedStore.value !== "all") {
+    // If Admin: Respect the dropdown selection
     query = query.eq("store_id", selectedStore.value);
   }
 
