@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import { supabase } from "../services/supabase";
+import { useUserStore } from "./userStore"; // 👈 IMPORT USER STORE
 
 export const useCartStore = defineStore("cart", {
   // 1. STATE
@@ -48,7 +49,7 @@ export const useCartStore = defineStore("cart", {
           signature: signature,
           name: drink.name,
           price: drink.price,
-          image_url: drink.image_url, // <--- FIX: Saves image for Sidebar
+          image_url: drink.image_url,
           qty: 1,
           modifiers: { sugar, ice },
         });
@@ -109,27 +110,35 @@ export const useCartStore = defineStore("cart", {
       localStorage.setItem("offlineOrders", JSON.stringify(this.offlineQueue));
 
       if (this.offlineQueue.length === 0) {
-        // Optional: Trigger a toast here saying "Sync Complete"
         console.log("All offline orders synced!");
       }
     },
 
-    // --- CHECKOUT (Handles Online + Offline) ---
+    // --- CHECKOUT (Handles Online + Offline + Multi-Store) ---
     async checkout(tempOrder = null) {
       // If cart is empty and we aren't retrying a temp order, stop.
       if (this.items.length === 0 && !tempOrder) return null;
 
-      // 1. Prepare Payload
-      // If it's a new order, generate a temporary ID (OFF-...) just in case we are offline
+      // 1. Get the Current Store ID
+      const userStore = useUserStore();
+
+      // Ensure we have the store ID (safety check)
+      if (!userStore.storeId) {
+        await userStore.fetchUserProfile();
+      }
+
+      // 2. Prepare Payload
       const payload = {
         id: tempOrder ? tempOrder.id : `OFF-${Date.now()}`,
+        // 🟢 CRITICAL: Attach the correct store ID to this order
+        store_id: userStore.storeId || 1, // Fallback to 1 if missing
         drinks: tempOrder ? tempOrder.drinks : this.items,
-        total_amount: tempOrder ? tempOrder.total : this.cartTotal, // <--- FIX: Matches DB Column
+        total_amount: tempOrder ? tempOrder.total : this.cartTotal,
         status: "completed",
         created_at: new Date().toISOString(),
       };
 
-      // 2. CHECK CONNECTION
+      // 3. CHECK CONNECTION
       if (!navigator.onLine) {
         console.log("Offline Mode: Saving to queue.");
         this.offlineQueue.push(payload);
@@ -142,7 +151,7 @@ export const useCartStore = defineStore("cart", {
         return payload; // Return payload so Receipt prints!
       }
 
-      // 3. TRY ONLINE INSERT
+      // 4. TRY ONLINE INSERT
       try {
         // Remove the temporary ID so Postgres generates a real numeric ID
         const { id, ...cleanPayload } = payload;

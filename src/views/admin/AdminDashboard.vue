@@ -1,7 +1,8 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router' // Import Router
+import { useRouter } from 'vue-router'
 import { supabase } from '../../services/supabase'
+import { useUserStore } from '../../stores/userStore' // Import User Store
 import { Bar } from 'vue-chartjs'
 import { 
   Chart as ChartJS, 
@@ -9,17 +10,19 @@ import {
 } from 'chart.js'
 import { 
   TrendingUp, ArrowUpRight, ArrowDownRight, DollarSign, 
-  ShoppingBag, CreditCard, Clock, Package, ChevronRight 
+  ShoppingBag, CreditCard, Clock, Package, ChevronRight, Store 
 } from 'lucide-vue-next'
 
-// Register ChartJS components
 ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale)
 
-const router = useRouter() // Initialize Router
+const router = useRouter()
+const userStore = useUserStore()
 
 // State
 const loading = ref(true)
 const timeRange = ref('30') // 'today', '7', '30'
+const selectedStore = ref('all') // Default to showing all
+const stores = ref([]) // List of available stores
 const stats = ref({ 
   revenue: 0, revenueGrowth: 0,
   orders: 0, ordersGrowth: 0,
@@ -29,7 +32,7 @@ const recentOrders = ref([])
 const topProducts = ref([])
 const chartData = ref({ labels: [], datasets: [] })
 
-// Chart Options
+// Chart Config
 const barOptions = {
   responsive: true,
   maintainAspectRatio: false,
@@ -43,20 +46,23 @@ const barOptions = {
 // Helpers
 const formatCurrency = (amount) => new Intl.NumberFormat('en-US').format(amount) + ' ៛'
 const formatDate = (dateStr) => new Date(dateStr).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit' })
-
 const getGradient = (ctx, chartArea) => {
   const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top)
   gradient.addColorStop(0, '#0f172a') 
   gradient.addColorStop(1, '#64748b') 
   return gradient
 }
-
-// Navigation for "View All"
-const viewAllOrders = () => {
-  router.push('/admin/orders') // Ensure this route exists in your router config
-}
+const viewAllOrders = () => router.push('/admin/orders')
 
 // --- DATA FETCHING ---
+
+// 1. Fetch Stores for the Dropdown
+const fetchStores = async () => {
+  const { data } = await supabase.from('stores').select('id, name')
+  stores.value = data || []
+}
+
+// 2. Fetch Dashboard Data
 const fetchDashboardData = async () => {
   loading.value = true
   
@@ -70,19 +76,28 @@ const fetchDashboardData = async () => {
   if (timeRange.value === 'today') prevStartDate.setDate(startDate.getDate() - 1)
   else prevStartDate.setDate(startDate.getDate() - parseInt(timeRange.value))
 
-  // Fetch Current Period
-  const { data: currentOrders } = await supabase
+  // Base Queries
+  let currentQuery = supabase
     .from('orders')
-    .select('*')
+    .select('total_amount, created_at, drinks')
     .gte('created_at', startDate.toISOString())
     .lte('created_at', now.toISOString())
 
-  // Fetch Previous Period (for growth stats)
-  const { data: prevOrders } = await supabase
+  let prevQuery = supabase
     .from('orders')
     .select('total_amount')
     .gte('created_at', prevStartDate.toISOString())
     .lt('created_at', startDate.toISOString())
+
+  // --- FILTER BY STORE IF SELECTED ---
+  if (selectedStore.value !== 'all') {
+    currentQuery = currentQuery.eq('store_id', selectedStore.value)
+    prevQuery = prevQuery.eq('store_id', selectedStore.value)
+  }
+
+  // Execute Queries
+  const { data: currentOrders } = await currentQuery
+  const { data: prevOrders } = await prevQuery
 
   // Calculations
   const currRev = currentOrders?.reduce((sum, o) => sum + o.total_amount, 0) || 0
@@ -99,26 +114,39 @@ const fetchDashboardData = async () => {
     avgGrowth: 0 
   }
 
-  // Recent Orders
-  recentOrders.value = currentOrders
-    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-    .slice(0, 5)
+  // Recent Orders (Need full select for display)
+  let recentQuery = supabase
+    .from('orders')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(5)
+  
+  if (selectedStore.value !== 'all') {
+    recentQuery = recentQuery.eq('store_id', selectedStore.value)
+  }
+  const { data: recentData } = await recentQuery
+  recentOrders.value = recentData || []
 
-  // Top Products
+  // Top Products Logic
   const productMap = {}
-  currentOrders.forEach(order => {
-    const items = order.drinks || [] 
+  currentOrders?.forEach(order => {
+    const items = order.drinks || [] // Assuming JSONB structure
     items.forEach(item => {
-      if (!productMap[item.name]) productMap[item.name] = { name: item.name, qty: 0, revenue: 0 }
-      productMap[item.name].qty += item.qty
-      productMap[item.name].revenue += (item.price * item.qty)
+      // Handle legacy string JSON or object
+      const name = typeof item === 'string' ? JSON.parse(item).name : item.name
+      const price = typeof item === 'string' ? JSON.parse(item).price : item.price
+      const qty = item.qty || 1
+      
+      if (!productMap[name]) productMap[name] = { name, qty: 0, revenue: 0 }
+      productMap[name].qty += qty
+      productMap[name].revenue += (price * qty)
     })
   })
   topProducts.value = Object.values(productMap).sort((a, b) => b.qty - a.qty).slice(0, 5)
 
   // Chart Data
   const chartMap = {}
-  currentOrders.forEach(order => {
+  currentOrders?.forEach(order => {
     const key = new Date(order.created_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
     chartMap[key] = (chartMap[key] || 0) + order.total_amount
   })
@@ -143,11 +171,13 @@ const fetchDashboardData = async () => {
   loading.value = false
 }
 
-watch(timeRange, () => fetchDashboardData())
+// Watchers
+watch([timeRange, selectedStore], () => fetchDashboardData())
 
 onMounted(() => {
+  if (userStore.role === 'admin') fetchStores() // Only fetch store list if admin
   fetchDashboardData()
-  // Subscribe to real-time changes
+  
   supabase.channel('dashboard-updates')
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, () => fetchDashboardData())
     .subscribe()
@@ -163,16 +193,34 @@ onMounted(() => {
         <p class="text-xs text-slate-500 mt-1">Real-time store performance and analytics.</p>
       </div>
       
-      <div class="grid grid-cols-3 gap-1 sm:flex sm:gap-0 p-1 bg-white border border-slate-200 rounded-lg shadow-sm w-full sm:w-auto">
-        <button 
-          v-for="range in [{l:'Today', v:'today'}, {l:'7 Days', v:'7'}, {l:'30 Days', v:'30'}]" 
-          :key="range.v"
-          @click="timeRange = range.v"
-          class="px-3 py-2 sm:py-1.5 text-xs font-medium rounded-md transition-all text-center"
-          :class="timeRange === range.v ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:text-slate-900'"
-        >
-          {{ range.l }}
-        </button>
+      <div class="flex flex-col sm:flex-row gap-3">
+        <div v-if="userStore.role === 'admin'" class="relative">
+          <Store class="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+          <select 
+            v-model="selectedStore" 
+            class="pl-9 pr-8 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:border-slate-900 shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all min-w-35"
+          >
+            <option value="all">All Stores</option>
+            <option v-for="store in stores" :key="store.id" :value="store.id">
+              {{ store.name }}
+            </option>
+          </select>
+          <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+             <div class="w-0 h-0 border-l-[3px] border-l-transparent border-r-[3px] border-r-transparent border-t-4 border-t-slate-400"></div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-1 p-1 bg-white border border-slate-200 rounded-lg shadow-sm">
+          <button 
+            v-for="range in [{l:'Today', v:'today'}, {l:'7 Days', v:'7'}, {l:'30 Days', v:'30'}]" 
+            :key="range.v"
+            @click="timeRange = range.v"
+            class="px-3 py-1.5 text-xs font-medium rounded-md transition-all text-center"
+            :class="timeRange === range.v ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:text-slate-900'"
+          >
+            {{ range.l }}
+          </button>
+        </div>
       </div>
     </div>
 

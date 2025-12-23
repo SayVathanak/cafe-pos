@@ -1,7 +1,10 @@
 <script setup>
 import { ref, watch } from 'vue'
 import { supabase } from '../services/supabase'
+import { useUserStore } from '../stores/userStore'
 import { X, Upload, Loader2, Trash2 } from 'lucide-vue-next'
+
+const userStore = useUserStore()
 
 const props = defineProps({ 
   isOpen: Boolean, 
@@ -59,7 +62,10 @@ const handleSave = async () => {
   }
   
   loading.value = true
-  const payload = { ...form.value }
+  const payload = {
+    ...form.value,
+    store_id: userStore.storeId
+  }
   let query;
 
   if (payload.id) {

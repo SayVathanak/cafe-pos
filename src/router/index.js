@@ -1,7 +1,7 @@
 import { createRouter, createWebHistory } from "vue-router";
-import { supabase } from "../services/supabase"; // Import supabase
+import { supabase } from "../services/supabase";
 import POSView from "../views/POSView.vue";
-import LoginView from "../views/LoginView.vue"; // Import Login
+import LoginView from "../views/LoginView.vue";
 import AdminLayout from "../views/admin/AdminLayout.vue";
 import AdminOrders from "../views/admin/AdminOrders.vue";
 import AdminProducts from "../views/admin/AdminProducts.vue";
@@ -9,27 +9,50 @@ import AdminDashboard from "../views/admin/AdminDashboard.vue";
 import AdminSettings from "../views/admin/AdminSettings.vue";
 
 const routes = [
-  { path: "/", name: "pos", component: POSView },
-  { path: "/login", name: "login", component: LoginView }, // Add Login Route
+  {
+    path: "/",
+    name: "pos",
+    component: POSView,
+    meta: { requiresAuth: true }, // ADDED: Forces login before seeing POS
+  },
+  {
+    path: "/login",
+    name: "login",
+    component: LoginView,
+  },
 
   {
     path: "/admin",
     component: AdminLayout,
-    meta: { requiresAuth: true }, // <--- Tag this route as protected
+    meta: { requiresAuth: true },
     children: [
       {
-        path: "", // Default path (Empty)
+        path: "",
         name: "admin-dashboard",
-        component: AdminDashboard, // <--- Set Dashboard as default
+        component: AdminDashboard,
       },
       {
-        path: "orders", // This matches /admin/orders <--- ADD THIS
+        path: "staff",
+        name: "AdminStaff",
+        component: () => import("../views/admin/AdminStaff.vue"), // Lazy Load
+      },
+      {
+        path: "stores",
+        name: "AdminStores",
+        component: () => import("../views/admin/AdminStores.vue"), // Lazy Load
+      },
+      {
+        path: "orders",
         name: "AdminOrders",
         component: AdminOrders,
       },
-      { path: "products", name: "admin-products", component: AdminProducts },
       {
-        path: "settings", // /admin/settings
+        path: "products",
+        name: "admin-products",
+        component: AdminProducts,
+      },
+      {
+        path: "settings",
         name: "admin-settings",
         component: AdminSettings,
       },
@@ -46,21 +69,17 @@ const router = createRouter({
 router.beforeEach(async (to, from, next) => {
   // Check if the route requires auth
   if (to.meta.requiresAuth) {
-    // Check if user is logged in with Supabase
     const {
       data: { session },
     } = await supabase.auth.getSession();
 
     if (session) {
-      // User is logged in -> Allow
-      next();
+      next(); // User is logged in -> Go ahead
     } else {
-      // User is NOT logged in -> Redirect to Login
-      next("/login");
+      next("/login"); // Not logged in -> Go to Login
     }
   } else {
-    // Route does not require auth -> Allow
-    next();
+    next(); // Public route (Login page) -> Go ahead
   }
 });
 

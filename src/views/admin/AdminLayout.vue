@@ -1,7 +1,8 @@
 <script setup>
-import { ref, computed } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { supabase } from "../../services/supabase";
+import { useUserStore } from "../../stores/userStore"; // 👈 Import the store
 import {
   LayoutDashboard,
   Coffee,
@@ -11,15 +12,25 @@ import {
   ShoppingBag,
   ChevronLeft,
   ChevronRight,
+  Store,
+  Users
 } from "lucide-vue-next";
 
 const router = useRouter();
 const route = useRoute();
+const userStore = useUserStore(); // 👈 Initialize store
 
 const isCollapsed = ref(false);
 
+// Load user profile on mount (double check in case of refresh)
+onMounted(async () => {
+  if (!userStore.user) {
+    await userStore.fetchUserProfile();
+  }
+});
+
 const handleLogout = async () => {
-  await supabase.auth.signOut();
+  await userStore.logout(); // 👈 Use store action
   router.push("/login");
 };
 
@@ -29,14 +40,24 @@ const isActive = (path) => {
   return false;
 };
 
+// 🟢 Define menu with permissions
 const menuItems = [
-  { name: "Overview", path: "/admin", icon: LayoutDashboard },
-  { name: "Orders", path: "/admin/orders", icon: ShoppingBag },
-  { name: "Menu", path: "/admin/products", icon: Coffee },
-  { name: "Settings", path: "/admin/settings", icon: Settings },
+  { name: "Overview", path: "/admin", icon: LayoutDashboard, adminOnly: false },
+  { name: "Orders", path: "/admin/orders", icon: ShoppingBag, adminOnly: false },
+  { name: "Menu", path: "/admin/products", icon: Coffee, adminOnly: false }, // Staff might need this
+  { name: "Staff", path: "/admin/staff", icon: Users, adminOnly: true }, // 👈 New: Admin Only
+  { name: "Stores", path: "/admin/stores", icon: Store, adminOnly: true }, // 👈 New: Admin Only
+  { name: "Settings", path: "/admin/settings", icon: Settings, adminOnly: true }, // 👈 Restricted
 ];
 
-// Helper class for the smooth text transition
+// 🟢 Filter menu items based on role
+const visibleMenuItems = computed(() => {
+  return menuItems.filter(item => {
+    if (item.adminOnly && userStore.role !== 'admin') return false;
+    return true;
+  });
+});
+
 const textClass = computed(() =>
   isCollapsed.value
     ? "opacity-0 max-w-0 translate-x-[-10px]"
@@ -51,38 +72,41 @@ const textClass = computed(() =>
       class="flex flex-col border-r border-slate-200 bg-white transition-all duration-500 ease-[cubic-bezier(0.25,0.8,0.25,1)] z-40"
       :class="[
         isCollapsed ? 'lg:w-18' : 'lg:w-64',
-        'fixed lg:relative h-full w-18' // Mobile defaults to small fixed
+        'fixed lg:relative h-full w-18' 
       ]"
     >
       <div class="h-16 hidden md:flex items-center justify-center min-h-16 relative overflow-hidden md:mt-6">
         <div class="flex items-center justify-start w-full px-4 transition-all duration-300">
+           <div class="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center text-white font-bold shrink-0">
+             {{ userStore.storeName ? userStore.storeName.charAt(0) : 'S' }}
+           </div>
+
            <div 
              class="flex flex-col justify-center whitespace-nowrap overflow-hidden transition-all duration-500 ease-in-out"
              :class="textClass"
            >
-             <span class="text-xl font-medium font-khmer text-slate-900">សាយ័ណ្ហកាហ្វេ</span>
-             <span class="text-[9px] text-slate-400 uppercase tracking-widest font-semibold">Admin Console</span>
+             <span class="text-sm font-bold text-slate-900 truncate">{{ userStore.storeName || 'Loading...' }}</span>
+             <span class="text-[9px] text-slate-400 uppercase tracking-widest font-semibold">{{ userStore.role || 'Guest' }} Portal</span>
            </div>
         </div>
       </div>
 
       <nav class="flex-1 px-3 space-y-5 md:space-y-1.5 mt-6 overflow-x-hidden">
         <router-link
-          v-for="item in menuItems"
+          v-for="item in visibleMenuItems" 
           :key="item.path"
           :to="item.path"
           class="group relative flex items-center px-3 py-3 rounded-xl transition-all duration-300 ease-out"
           :class="[
             isActive(item.path)
-              ? 'text-slate-900'
-              : 'text-slate-500'
+              ? 'bg-slate-50 text-slate-900 font-semibold' // Active state style
+              : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
           ]"
         >
           <component
             :is="item.icon"
             class="w-5 h-5 shrink-0 transition-transform duration-300 ease-out"
             :class="{ 
-              'scale-110': !isActive(item.path) && !isCollapsed,
               'text-slate-900': isActive(item.path)
             }"
           />
@@ -125,9 +149,6 @@ const textClass = computed(() =>
           <span class="whitespace-nowrap overflow-hidden transition-all duration-500 ease-in-out" :class="textClass">
             POS Terminal
           </span>
-          <div v-if="isCollapsed" class="absolute left-full ml-4 px-2 py-1 bg-slate-800 text-white text-[10px] rounded shadow-sm whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-50">
-            Back to POS
-          </div>
         </button>
 
         <button
@@ -138,9 +159,6 @@ const textClass = computed(() =>
           <span class="whitespace-nowrap overflow-hidden transition-all duration-500 ease-in-out" :class="textClass">
             Sign Out
           </span>
-           <div v-if="isCollapsed" class="absolute left-full ml-4 px-2 py-1 bg-red-600 text-white text-[10px] rounded shadow-sm whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-50">
-            Sign Out
-          </div>
         </button>
       </div>
     </aside>
@@ -160,17 +178,14 @@ const textClass = computed(() =>
 </template>
 
 <style scoped>
-/* Smoother Page Transitions */
 .smooth-fade-enter-active,
 .smooth-fade-leave-active {
   transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.25, 0.8, 0.5, 1);
 }
-
 .smooth-fade-enter-from {
   opacity: 0;
   transform: translateY(10px);
 }
-
 .smooth-fade-leave-to {
   opacity: 0;
   transform: translateY(-10px);
