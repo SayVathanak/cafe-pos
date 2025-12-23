@@ -138,11 +138,18 @@ const textClass = computed(() =>
       </div>
     </aside>
 
-
     <nav class="lg:hidden fixed bottom-0 left-0 right-0 z-50 flex justify-around items-center bg-white/90 backdrop-blur-lg border-t border-slate-200/60 shadow-[0_-8px_30px_rgba(0,0,0,0.04)] mobile-nav-fix">
       
+      <button 
+        @click="router.push('/')" 
+        class="flex flex-col items-center justify-center w-16 gap-1 text-slate-400 hover:text-slate-900 transition-colors duration-300 active:scale-90"
+      >
+        <ArrowLeft class="w-6 h-6" />
+        <span class="text-[9px] font-bold tracking-wide">POS</span>
+      </button>
+
       <router-link
-        v-for="item in visibleMenuItems.slice(0, 4)" 
+        v-for="item in visibleMenuItems.slice(0, 3)" 
         :key="item.path"
         :to="item.path"
         class="flex flex-col items-center justify-center w-16 gap-1 transition-all duration-300 active:scale-95"
