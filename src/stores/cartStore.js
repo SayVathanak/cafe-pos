@@ -116,22 +116,15 @@ export const useCartStore = defineStore("cart", {
 
     // --- CHECKOUT (Handles Online + Offline + Multi-Store) ---
     async checkout(tempOrder = null) {
-      // If cart is empty and we aren't retrying a temp order, stop.
       if (this.items.length === 0 && !tempOrder) return null;
 
-      // 1. Get the Current Store ID
       const userStore = useUserStore();
+      if (!userStore.storeId) await userStore.fetchUserProfile();
 
-      // Ensure we have the store ID (safety check)
-      if (!userStore.storeId) {
-        await userStore.fetchUserProfile();
-      }
-
-      // 2. Prepare Payload
       const payload = {
         id: tempOrder ? tempOrder.id : `OFF-${Date.now()}`,
-        // 🟢 CRITICAL: Attach the correct store ID to this order
-        store_id: userStore.storeId || 1, // Fallback to 1 if missing
+        store_id: userStore.storeId,
+        organization_id: userStore.organizationId, // 🔒 Critical
         drinks: tempOrder ? tempOrder.drinks : this.items,
         total_amount: tempOrder ? tempOrder.total : this.cartTotal,
         status: "completed",

@@ -28,33 +28,36 @@ const selectedOrder = ref(null);
 
 // --- FETCH DATA ---
 const fetchStores = async () => {
-  if (userStore.role !== "admin") return;
-  const { data } = await supabase.from("stores").select("id, name");
+  // ✅ Allow Super Admin to fetch stores list
+  if (!userStore.isAdminOrSuper) return;
+  const { data } = await supabase
+    .from("stores")
+    .select("id, name")
+    .eq("organization_id", userStore.organizationId);
   stores.value = data || [];
 };
 
 // ✅ FIXED: Secure Fetch Logic
 const fetchOrders = async () => {
   loading.value = true;
-
   let query = supabase
     .from("orders")
     .select("*")
+    .eq("organization_id", userStore.organizationId)
     .order("created_at", { ascending: false });
 
-  // --- 🔒 SECURITY CHECK ---
-  if (userStore.role !== 'admin') {
-    // If Staff: FORCE them to see only their store
+  // ✅ Logic Update: 
+  // If Staff -> Locked to their store
+  if (!userStore.isAdminOrSuper) {
     query = query.eq("store_id", userStore.storeId);
   } 
+  // If Admin/Super -> Can toggle views
   else if (selectedStore.value !== "all") {
-    // If Admin: Respect the dropdown selection
     query = query.eq("store_id", selectedStore.value);
   }
 
-  const { data, error } = await query;
+  const { data } = await query;
   if (data) orders.value = data;
-
   loading.value = false;
 };
 

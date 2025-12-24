@@ -6,10 +6,12 @@ import { useCartStore } from "../stores/cartStore";
 import CardDrink from "../components/CardDrink.vue";
 import CartSidebar from "../components/CartSidebar.vue";
 import ProductOptionsModal from "../components/ProductOptionsModal.vue";
+import { useUserStore } from "../stores/userStore";
 import { ShoppingBag, Search, Wifi, WifiOff, RefreshCw, Star } from "lucide-vue-next";
 
 const router = useRouter();
 const cartStore = useCartStore();
+const userStore = useUserStore();
 
 // STATE
 const menu = ref([]);
@@ -46,6 +48,7 @@ const fetchMenu = async () => {
     .from("drinks")
     .select("*")
     .eq("available", true)
+    .eq("organization_id", userStore.organizationId)
     .order("name");
 
   if (data) {

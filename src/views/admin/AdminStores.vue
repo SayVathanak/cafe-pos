@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { supabase } from '../../services/supabase'
 import { useToastStore } from '../../stores/toastStore'
+import { useUserStore } from '../../stores/userStore'
 import { 
   Store, MapPin, Phone, Wifi, Plus, Edit2, 
   Trash2, X, Loader2, Link, Copy, Lock 
@@ -17,6 +18,8 @@ const saving = ref(false)
 const showLinkModal = ref(false)
 const activationLink = ref('')
 const selectedStoreName = ref('')
+
+const userStore = useUserStore();
 
 // Form Data
 const form = ref({
@@ -34,6 +37,7 @@ const fetchStores = async () => {
   const { data, error } = await supabase
     .from('stores')
     .select('*')
+    .eq('organization_id', userStore.organizationId)
     .order('id')
   
   if (error) toast.addToast("Failed to load stores", "error")
@@ -65,10 +69,13 @@ const handleDelete = async (id) => {
 }
 
 const handleSave = async () => {
-  if (!form.value.name) return toast.addToast("Store name is required", "error")
+  if (!form.value.name) return toast.addToast("Name required", "error");
 
-  saving.value = true
-  const payload = { ...form.value }
+  saving.value = true;
+  const payload = {
+    ...form.value,
+    organization_id: userStore.organizationId // 🔒 Bind to Client
+  };
   let response
 
   if (form.value.id) {

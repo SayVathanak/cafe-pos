@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '../../services/supabase'
 import { useUserStore } from '../../stores/userStore' // Import User Store
@@ -186,13 +186,29 @@ const fetchDashboardData = async () => {
 watch([timeRange, selectedStore], () => fetchDashboardData())
 
 onMounted(() => {
-  if (userStore.role === 'admin') fetchStores() // Only fetch store list if admin
+  if (userStore.isAdminOrSuper) fetchStores()
   fetchDashboardData()
   
-  supabase.channel('dashboard-updates')
-    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, () => fetchDashboardData())
+  // ✅ SECURITY FIX: Filter Realtime Events by Organization
+  const subscription = supabase.channel('dashboard-updates')
+    .on(
+      'postgres_changes', 
+      { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'orders',
+        filter: `organization_id=eq.${userStore.organizationId}` // 🔒 CRITICAL
+      }, 
+      () => fetchDashboardData()
+    )
     .subscribe()
+    
+  // Cleanup
+  onUnmounted(() => {
+    supabase.removeChannel(subscription)
+  })
 })
+
 </script>
 
 <template>

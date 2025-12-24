@@ -3,7 +3,7 @@ import { ref } from "vue";
 import { useRouter } from "vue-router";
 import { supabase } from "../services/supabase";
 import { useUserStore } from "../stores/userStore";
-import { Lock, Mail, Loader2 } from "lucide-vue-next";
+import { Lock, Mail, Loader2, ArrowRight, Command } from "lucide-vue-next";
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -18,7 +18,6 @@ const handleLogin = async () => {
   errorMsg.value = "";
 
   try {
-    // 1. Authenticate with Supabase Auth
     const { error } = await supabase.auth.signInWithPassword({
       email: email.value,
       password: password.value,
@@ -26,21 +25,22 @@ const handleLogin = async () => {
 
     if (error) throw error;
 
-    // 2. Fetch Role & Store Data (Pinia Store)
-    // This checks if they are Admin or Staff, and which store they belong to
     await userStore.fetchUserProfile();
     
-    // 3. Redirect based on result
-    if (userStore.role) {
-      router.push("/admin");
+    // Intelligent Routing based on Role
+    if (userStore.role === 'super_admin') {
+        router.push("/super-admin"); 
+    } else if (userStore.role === 'admin') {
+        router.push("/admin");
+    } else if (userStore.role === 'staff') {
+        router.push("/pos");
     } else {
-      // User exists in Auth but not in 'user_roles' table
-      throw new Error("Access denied. No role assigned to this account.");
+      throw new Error("Access denied. No role assigned.");
     }
 
   } catch (err) {
     errorMsg.value = err.message;
-    await supabase.auth.signOut(); // Force logout if role check fails
+    await supabase.auth.signOut();
   } finally {
     loading.value = false;
   }
@@ -48,45 +48,63 @@ const handleLogin = async () => {
 </script>
 
 <template>
-  <div class="min-h-screen flex items-center justify-center bg-slate-50 font-sans text-slate-900 p-6">
-    <div class="w-full max-w-sm bg-white border border-slate-100 p-8 rounded-2xl shadow-xl shadow-slate-200/50 relative overflow-hidden">
-      
-      <div class="absolute top-0 left-0 w-full h-1 bg-linear-to-r from-black via-slate-700 to-black"></div>
+  <div class="relative min-h-screen w-full flex items-center justify-center font-sans overflow-hidden bg-[#F8FAFC]">
+    
+    <div class="absolute inset-0 z-0 overflow-hidden">
+        <div class="absolute top-[-10%] left-[-10%] w-125 h-125 bg-purple-200 rounded-full blur-[100px] opacity-60 animate-blob"></div>
+        <div class="absolute bottom-[-10%] right-[-10%] w-125 h-125 bg-indigo-200 rounded-full blur-[100px] opacity-60 animate-blob animation-delay-2000"></div>
+        <div class="absolute top-[40%] left-[40%] w-150 h-150 bg-blue-100 rounded-full blur-[120px] opacity-50 animate-blob animation-delay-4000"></div>
+    </div>
 
-      <div class="mb-8 text-center">
-        <div class="w-12 h-12 bg-black text-white rounded-xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-black/20">
-          <span class="font-bold text-xl font-khmer">ស</span>
+    <div class="relative z-10 w-full max-w-105 p-8 md:p-10">
+      
+      <div class="mb-10 text-center">
+        <div class="w-14 h-14 bg-black text-white rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-indigo-500/20 transform hover:scale-105 transition-transform duration-300">
+          <Command class="w-7 h-7" />
         </div>
-        <h1 class="text-xl font-bold font-khmer text-slate-900 mb-1">សាយ័ណ្ហកាហ្វេ</h1>
-        <p class="text-[10px] font-mono text-slate-400 uppercase tracking-widest">Authorized Access Only</p>
+        <h1 class="text-2xl font-bold tracking-tight text-slate-900">Sign in to Platform</h1>
+        <p class="text-slate-500 text-sm mt-2 font-medium">Welcome back, please enter your details.</p>
       </div>
 
       <form @submit.prevent="handleLogin" class="space-y-6">
         
-        <div v-if="errorMsg" class="bg-red-50 border border-red-100 p-3 rounded-lg flex items-start gap-2">
-          <div class="text-red-600 text-[10px] font-bold uppercase tracking-wide leading-relaxed">
-            {{ errorMsg }}
+        <div v-if="errorMsg" class="bg-red-50 border border-red-100 rounded-xl p-4 flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
+          <div class="bg-red-100 p-1 rounded-full shrink-0">
+             <span class="block w-1.5 h-1.5 bg-red-600 rounded-full"></span>
           </div>
+          <p class="text-xs font-bold text-red-600 leading-relaxed">{{ errorMsg }}</p>
         </div>
 
         <div class="space-y-4">
-          <div>
-            <label class="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Email</label>
-            <div class="relative">
-              <div class="absolute inset-y-0 left-0 pl-0 flex items-center pointer-events-none">
-                <Mail class="w-4 h-4 text-slate-300" />
+          <div class="group">
+            <label class="block text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-1.5 ml-1">Email</label>
+            <div class="relative transition-all duration-300 focus-within:scale-[1.01]">
+              <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                <Mail class="w-4 h-4 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
               </div>
-              <input v-model="email" type="email" required class="w-full pl-7 py-2 bg-transparent border-b border-slate-200 text-sm font-medium text-slate-900 focus:outline-none focus:border-black transition-all" placeholder="staff@sayon.com" />
+              <input 
+                v-model="email" 
+                type="email" 
+                required
+                placeholder="name@company.com" 
+                class="w-full bg-white/70 backdrop-blur-sm border border-slate-200 rounded-2xl py-3.5 pl-11 pr-4 text-sm font-medium text-slate-900 shadow-sm outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all placeholder:text-slate-400 placeholder:font-normal" 
+              />
             </div>
           </div>
 
-          <div>
-            <label class="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Password</label>
-            <div class="relative">
-              <div class="absolute inset-y-0 left-0 pl-0 flex items-center pointer-events-none">
-                <Lock class="w-4 h-4 text-slate-300" />
+          <div class="group">
+            <label class="block text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-1.5 ml-1">Password</label>
+            <div class="relative transition-all duration-300 focus-within:scale-[1.01]">
+              <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                <Lock class="w-4 h-4 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
               </div>
-              <input v-model="password" type="password" required class="w-full pl-7 py-2 bg-transparent border-b border-slate-200 text-sm font-medium text-slate-900 focus:outline-none focus:border-black transition-all" placeholder="••••••••" />
+              <input 
+                v-model="password" 
+                type="password" 
+                required
+                placeholder="••••••••" 
+                class="w-full bg-white/70 backdrop-blur-sm border border-slate-200 rounded-2xl py-3.5 pl-11 pr-4 text-sm font-medium text-slate-900 shadow-sm outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all placeholder:text-slate-400 placeholder:font-normal" 
+              />
             </div>
           </div>
         </div>
@@ -94,12 +112,45 @@ const handleLogin = async () => {
         <button
           type="submit"
           :disabled="loading"
-          class="w-full bg-black text-white py-3 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-slate-800 disabled:opacity-70 transition-all flex items-center justify-center gap-2 shadow-md hover:-translate-y-0.5"
+          class="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold text-sm shadow-xl shadow-slate-900/10 hover:bg-black hover:shadow-2xl hover:shadow-slate-900/20 active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-2 group"
         >
-          <Loader2 v-if="loading" class="w-3 h-3 animate-spin" />
-          <span>{{ loading ? "Verifying..." : "Sign In" }}</span>
+          <Loader2 v-if="loading" class="w-5 h-5 animate-spin text-white/80" />
+          <span v-else>Continue</span>
+          <ArrowRight v-if="!loading" class="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
         </button>
+
       </form>
+
+      <div class="mt-8 text-center space-y-4">
+        <p class="text-xs text-slate-400">
+          Powered by <span class="font-bold text-slate-500">POS Platform Systems</span>
+        </p>
+        <div class="flex justify-center gap-1">
+            <div class="w-1 h-1 rounded-full bg-slate-200"></div>
+            <div class="w-1 h-1 rounded-full bg-slate-200"></div>
+            <div class="w-1 h-1 rounded-full bg-slate-200"></div>
+        </div>
+      </div>
     </div>
+
   </div>
 </template>
+
+<style scoped>
+/* Keyframes for the background blob animation */
+@keyframes blob {
+  0% { transform: translate(0px, 0px) scale(1); }
+  33% { transform: translate(30px, -50px) scale(1.1); }
+  66% { transform: translate(-20px, 20px) scale(0.9); }
+  100% { transform: translate(0px, 0px) scale(1); }
+}
+.animate-blob {
+  animation: blob 7s infinite;
+}
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+.animation-delay-4000 {
+  animation-delay: 4s;
+}
+</style>

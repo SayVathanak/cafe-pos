@@ -4,38 +4,49 @@ import { supabase } from "../services/supabase";
 export const useUserStore = defineStore("user", {
   state: () => ({
     user: null,
-    role: null, // 'admin' or 'staff'
+    role: null, // 'super_admin', 'admin', 'staff'
     storeId: null,
     storeName: null,
+    organizationId: null,
   }),
+
+  getters: {
+    // ✅ NEW: Helper to let YOU access Admin features
+    isAdminOrSuper: (state) => ["admin", "super_admin"].includes(state.role),
+  },
 
   actions: {
     async fetchUserProfile() {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (!user) return null;
+      if (!user) return;
 
-      // Fetch the role and store link we created in SQL
-      const { data: roleData } = await supabase
-        .from("user_roles")
-        .select("role, store_id, stores(name)")
-        .eq("user_id", user.id)
+      // ✅ FIX: We explicitly join 'stores' to get the name
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role, store_id, organization_id, stores(name)")
+        .eq("id", user.id)
         .single();
 
-      this.user = user;
-      this.role = roleData?.role || "staff";
-      this.storeId = roleData?.store_id;
-      this.storeName = roleData?.stores?.name;
+      if (profile) {
+        this.user = user;
+        this.role = profile.role;
+        this.storeId = profile.store_id;
+        this.organizationId = profile.organization_id;
 
-      return this.role;
+        // Logic: If Super Admin has no store, show 'Platform'
+        if (this.role === "super_admin" && !profile.store_id) {
+          this.storeName = "Platform Control";
+        } else {
+          this.storeName = profile.stores?.name || "Central Office";
+        }
+      }
     },
 
     async logout() {
       await supabase.auth.signOut();
-      this.user = null;
-      this.role = null;
-      this.storeId = null;
+      this.$reset();
     },
   },
 });

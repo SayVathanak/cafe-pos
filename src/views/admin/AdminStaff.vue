@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { supabase } from '../../services/supabase'
 import { useToastStore } from '../../stores/toastStore'
+import { useUserStore } from '../../stores/userStore'
 import { 
   Users, Search, Shield, Store, Save, Loader2, UserCog 
 } from 'lucide-vue-next'
@@ -11,6 +12,7 @@ const loading = ref(true)
 const staffList = ref([])
 const stores = ref([])
 const searchQuery = ref('')
+const userStore = useUserStore();
 
 // Fetch Data
 const fetchData = async () => {
@@ -20,6 +22,7 @@ const fetchData = async () => {
   const { data: profiles, error: profileError } = await supabase
     .from('profiles')
     .select('id, email, full_name')
+    .eq('organization_id', userStore.organizationId)
     
   // 2. Get all roles assignments
   const { data: roles, error: roleError } = await supabase
@@ -27,7 +30,10 @@ const fetchData = async () => {
     .select('*')
 
   // 3. Get all available stores
-  const { data: storeList } = await supabase.from('stores').select('*')
+  const { data: storeList } = await supabase
+    .from('stores')
+    .select('*')
+    .eq('organization_id', userStore.organizationId)
   stores.value = storeList || []
 
   if (profileError || roleError) {
@@ -52,16 +58,17 @@ const fetchData = async () => {
 
 // Update Staff Member
 const updateStaff = async (user) => {
-  user.isSaving = true
+  if (!userStore.isAdminOrSuper) return; // Guard
   
-  // Upsert into user_roles (Insert if not exists, Update if exists)
+  user.isSaving = true;
   const { error } = await supabase
     .from('user_roles')
     .upsert({ 
       user_id: user.id,
       role: user.role, 
-      store_id: user.store_id
-    }, { onConflict: 'user_id' })
+      store_id: user.store_id,
+      organization_id: userStore.organizationId // 🔒 Bind to Client
+    }, { onConflict: 'user_id' });
 
   user.isSaving = false
 
