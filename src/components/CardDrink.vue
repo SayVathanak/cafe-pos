@@ -11,7 +11,7 @@ defineProps({
     class="group relative flex flex-col justify-between bg-white rounded-2xl border border-slate-200 shadow-sm transition-all duration-150 cursor-pointer overflow-hidden
     active:scale-[0.96] active:border-slate-400 select-none touch-manipulation h-full"
   >
-    <div class="relative w-full aspect-4/3 bg-slate-100 overflow-hidden border-b border-slate-50">
+    <div class="relative w-full aspect-square bg-slate-100 overflow-hidden border-b border-slate-50">
       <img 
         v-if="drink.image_url" 
         :src="drink.image_url" 
@@ -22,7 +22,7 @@ defineProps({
         <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10 opacity-40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
       </div>
       
-      <div class="absolute top-2 left-2 px-2 py-0.5 bg-white/90 backdrop-blur text-[10px] font-medium uppercase tracking-wider text-slate-500 rounded-md border border-slate-200/50 shadow-sm">
+      <div class="absolute top-2 left-2 px-2 py-0.5 bg-white/90 backdrop-blur text-[8px] font-medium uppercase tracking-wider text-slate-500 rounded-md border border-slate-200/50 shadow-sm">
         {{ drink.category }}
       </div>
     </div>
@@ -33,8 +33,8 @@ defineProps({
       </h3>
 
       <div class="flex items-center justify-between mt-auto">
-        <span class="font-medium font-khmer text-slate-900 text-base">
-          {{ drink.price.toLocaleString() }}៛
+        <span class="font-medium text-slate-900 text-sm">
+          {{ drink.price.toLocaleString() }} ៛
         </span>
         
         <div class="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center text-white shadow-md shadow-slate-900/10">
