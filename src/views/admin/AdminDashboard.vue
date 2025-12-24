@@ -2,7 +2,7 @@
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '../../services/supabase'
-import { useUserStore } from '../../stores/userStore' // Import User Store
+import { useUserStore } from '../../stores/userStore' 
 import { Bar } from 'vue-chartjs'
 import { 
   Chart as ChartJS, 
@@ -21,8 +21,8 @@ const userStore = useUserStore()
 // State
 const loading = ref(true)
 const timeRange = ref('30') // 'today', '7', '30'
-const selectedStore = ref('all') // Default to showing all
-const stores = ref([]) // List of available stores
+const selectedStore = ref('all') 
+const stores = ref([]) 
 const stats = ref({ 
   revenue: 0, revenueGrowth: 0,
   orders: 0, ordersGrowth: 0,
@@ -56,15 +56,21 @@ const viewAllOrders = () => router.push('/admin/orders')
 
 // --- DATA FETCHING ---
 
-// 1. Fetch Stores for the Dropdown
+// 1. Fetch Stores (FIXED: Filter by Organization)
 const fetchStores = async () => {
-  const { data } = await supabase.from('stores').select('id, name')
+  if (!userStore.organizationId) return
+
+  const { data } = await supabase
+    .from('stores')
+    .select('id, name')
+    .eq('organization_id', userStore.organizationId) // <--- CRITICAL FIX
+  
   stores.value = data || []
 }
 
 // 2. Fetch Dashboard Data
-// 2. Fetch Dashboard Data
 const fetchDashboardData = async () => {
+  if (!userStore.organizationId) return
   loading.value = true
   
   const now = new Date()
@@ -83,14 +89,18 @@ const fetchDashboardData = async () => {
     .select('total_amount, created_at, drinks')
     .gte('created_at', startDate.toISOString())
     .lte('created_at', now.toISOString())
+    // --- 🔒 GLOBAL SECURITY FIX: ALWAYS FILTER BY ORGANIZATION ---
+    .eq('organization_id', userStore.organizationId)
 
   let prevQuery = supabase
     .from('orders')
     .select('total_amount')
     .gte('created_at', prevStartDate.toISOString())
     .lt('created_at', startDate.toISOString())
+    // --- 🔒 GLOBAL SECURITY FIX ---
+    .eq('organization_id', userStore.organizationId)
 
-  // --- 🔒 SECURITY FIX: FILTER BY STORE ---
+  // --- SPECIFIC STORE FILTERING ---
   if (userStore.role !== 'admin') {
     // IF STAFF: Force them to see ONLY their store
     currentQuery = currentQuery.eq('store_id', userStore.storeId)
@@ -121,14 +131,14 @@ const fetchDashboardData = async () => {
     avgGrowth: 0 
   }
 
-  // Recent Orders (Need full select for display)
+  // Recent Orders Query
   let recentQuery = supabase
     .from('orders')
     .select('*')
+    .eq('organization_id', userStore.organizationId) // <--- FIX
     .order('created_at', { ascending: false })
     .limit(5)
   
-  // --- 🔒 SECURITY FIX: RECENT ORDERS ---
   if (userStore.role !== 'admin') {
     recentQuery = recentQuery.eq('store_id', userStore.storeId)
   } else if (selectedStore.value !== 'all') {
@@ -138,7 +148,7 @@ const fetchDashboardData = async () => {
   const { data: recentData } = await recentQuery
   recentOrders.value = recentData || []
 
-  // Top Products Logic (Automatically fixed because 'currentOrders' is now filtered)
+  // Top Products Logic
   const productMap = {}
   currentOrders?.forEach(order => {
     const items = order.drinks || [] 
@@ -155,7 +165,7 @@ const fetchDashboardData = async () => {
   })
   topProducts.value = Object.values(productMap).sort((a, b) => b.qty - a.qty).slice(0, 5)
 
-  // Chart Data (Automatically fixed because 'currentOrders' is now filtered)
+  // Chart Data
   const chartMap = {}
   currentOrders?.forEach(order => {
     const key = new Date(order.created_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
@@ -189,7 +199,7 @@ onMounted(() => {
   if (userStore.isAdminOrSuper) fetchStores()
   fetchDashboardData()
   
-  // ✅ SECURITY FIX: Filter Realtime Events by Organization
+  // Realtime Subscription (Already Correct)
   const subscription = supabase.channel('dashboard-updates')
     .on(
       'postgres_changes', 
@@ -197,7 +207,7 @@ onMounted(() => {
         event: 'INSERT', 
         schema: 'public', 
         table: 'orders',
-        filter: `organization_id=eq.${userStore.organizationId}` // 🔒 CRITICAL
+        filter: `organization_id=eq.${userStore.organizationId}`
       }, 
       () => fetchDashboardData()
     )
@@ -208,7 +218,6 @@ onMounted(() => {
     supabase.removeChannel(subscription)
   })
 })
-
 </script>
 
 <template>
@@ -216,7 +225,9 @@ onMounted(() => {
     
     <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
       <div>
-        <h2 class="text-2xl font-semibold tracking-tight text-slate-900">Dashboard Overview</h2>
+        <h2 class="text-2xl font-semibold tracking-tight text-slate-900">
+           {{ selectedStore !== 'all' ? stores.find(s => s.id === selectedStore)?.name : 'Dashboard Overview' }}
+        </h2>
         <p class="text-xs text-slate-500 mt-1">Real-time store performance and analytics.</p>
       </div>
       

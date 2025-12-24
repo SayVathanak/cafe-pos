@@ -5,7 +5,8 @@ import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { supabase } from '../services/supabase'
 import { useToastStore } from '../stores/toastStore'
 import { 
-  Building2, Plus, Users, Search, Loader2, X, MoreHorizontal, LayoutGrid, CheckCircle2, MonitorCheck, LogOut 
+  Building2, Plus, Users, Search, Loader2, X, MoreHorizontal, LayoutGrid, 
+  CheckCircle2, MonitorCheck, LogOut, Trash2 
 } from 'lucide-vue-next'
 
 const router = useRouter()
@@ -32,6 +33,7 @@ const fetchOrgs = async () => {
     return
   }
 
+  // We manually count stores and profiles for accuracy
   const orgsWithCounts = await Promise.all(
     (orgsData || []).map(async (org) => {
       const { count: storesCount } = await supabase
@@ -55,68 +57,129 @@ const fetchOrgs = async () => {
   loading.value = false
 }
 
-// 2. CREATE CLIENT (Ghost Client Logic)
+// 2. CREATE CLIENT (Complex Logic)
 const createClient = async () => {
+  // 0. Validation
   if (!newOrg.value.name || !newOrg.value.ownerEmail || !newOrg.value.ownerPassword) {
     return toast.addToast("Please fill in all fields", "error")
   }
   saving.value = true
 
-  // Step A: Create Org
-  const { data: org, error: orgErr } = await supabase
-    .from('organizations')
-    .insert({ name: newOrg.value.name })
-    .select()
-    .single()
+  try {
+    // STEP 1: Create Organization
+    const { data: org, error: orgErr } = await supabase
+      .from('organizations')
+      .insert({ name: newOrg.value.name })
+      .select()
+      .single()
+    
+    if (orgErr) throw new Error("Org Check: " + orgErr.message)
 
-  if (orgErr) {
+    // STEP 2: Create the First "Main Branch" Store
+    const { data: newStore, error: storeErr } = await supabase
+      .from('stores')
+      .insert({
+        organization_id: org.id,
+        name: `${newOrg.value.name} - HQ`, 
+        location: 'Main Office',
+        active: true
+      })
+      .select()
+      .single()
+
+    if (storeErr) throw new Error("Store Creation: " + storeErr.message)
+
+    // STEP 3: Create Auth User (Ghost Client via Admin/Anon API)
+    // We use a temporary client to avoid logging out the Super Admin
+    const tempSupabase = createSupabaseClient(
+      import.meta.env.VITE_SUPABASE_URL,
+      import.meta.env.VITE_SUPABASE_ANON_KEY,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    )
+
+    const { data: authData, error: authErr } = await tempSupabase.auth.signUp({
+      email: newOrg.value.ownerEmail,
+      password: newOrg.value.ownerPassword,
+      options: {
+        data: {
+          full_name: `${newOrg.value.name} Manager`,
+          organization_id: org.id,
+          role: 'admin'
+        }
+      }
+    })
+
+    if (authErr) throw new Error("Auth Signup: " + authErr.message)
+
+    if (authData.user) {
+      const userId = authData.user.id
+
+      // STEP 4: Create Profile 
+      const { error: profileErr } = await supabase
+        .from('profiles')
+        .insert({
+          id: userId,
+          organization_id: org.id,
+          store_id: newStore.id, // Linking to store immediately
+          email: newOrg.value.ownerEmail,
+          role: 'admin',
+          full_name: `${newOrg.value.name} Manager`
+        })
+
+      if (profileErr) throw new Error("Profile Error: " + profileErr.message)
+
+      // STEP 5: Create User Role
+      const { error: roleErr } = await supabase
+        .from('user_roles')
+        .insert({
+          user_id: userId,
+          store_id: newStore.id,
+          role: 'admin'
+        })
+      
+      if (roleErr) console.error("User Role Warning:", roleErr)
+
+      // SUCCESS
+      toast.addToast(`Client "${newOrg.value.name}" setup complete!`, "success")
+      showModal.value = false
+      newOrg.value = { name: '', ownerEmail: '', ownerPassword: '' }
+      fetchOrgs()
+    }
+
+  } catch (error) {
+    console.error(error)
+    toast.addToast(error.message, "error")
+  } finally {
     saving.value = false
-    return toast.addToast(orgErr.message, "error")
   }
-
-  // Step B: Create User (Ghost)
-  const tempSupabase = createSupabaseClient(
-    import.meta.env.VITE_SUPABASE_URL,
-    import.meta.env.VITE_SUPABASE_ANON_KEY,
-    {
-      auth: {
-        autoRefreshToken: false, 
-        persistSession: false,
-        detectSessionInUrl: false
-      }
-    }
-  )
-
-  const { error: authErr } = await tempSupabase.auth.signUp({
-    email: newOrg.value.ownerEmail,
-    password: newOrg.value.ownerPassword,
-    options: {
-      data: {
-        full_name: `${newOrg.value.name} Admin`,
-        organization_id: org.id, 
-        role: 'admin'
-      }
-    }
-  })
-
-  if (authErr) {
-    toast.addToast(authErr.message, "error")
-  } else {
-    toast.addToast(`Client "${newOrg.value.name}" created!`, "success")
-    showModal.value = false
-    newOrg.value = { name: '', ownerEmail: '', ownerPassword: '' }
-    fetchOrgs()
-  }
-  saving.value = false
 }
 
-// 3. LOGOUT LOGIC
+// 3. DELETE ORGANIZATION
+const deleteOrg = async (id, name) => {
+  const confirmMsg = `Are you sure you want to delete "${name}"?\nThis will remove all their data permanently.`
+  if (!confirm(confirmMsg)) return
+
+  // Database Foreign Keys must have "ON DELETE CASCADE" for this to work cleanly
+  const { error } = await supabase
+    .from('organizations')
+    .delete()
+    .eq('id', id)
+
+  if (error) {
+    toast.addToast("Delete failed: " + error.message, "error")
+  } else {
+    toast.addToast(`Organization "${name}" deleted`, "success")
+    fetchOrgs()
+  }
+}
+
+// 4. LOGOUT
 const handleLogout = async () => {
   await supabase.auth.signOut()
   router.push('/')
 }
 
-// Filter Logic
+// Filter
 const filteredOrgs = computed(() => {
   if (!searchQuery.value) return orgs.value
   return orgs.value.filter(org => 
@@ -133,7 +196,7 @@ onMounted(fetchOrgs)
     
     <nav class="shrink-0 bg-white border-b border-slate-200 h-14 flex items-center justify-between px-4 z-20">
       <div class="flex items-center gap-3">
-        <div class="w-8 h-8 bg-black rounded-lg flex items-center justify-center text-white">
+        <div class="w-8 h-8 bg-black rounded-lg flex items-center justify-center text-white shadow-sm">
           <LayoutGrid class="w-4 h-4" />
         </div>
         <span class="font-bold text-sm tracking-tight text-slate-900">Platform Admin</span>
@@ -164,14 +227,14 @@ onMounted(fetchOrgs)
       </div>
     </nav>
 
-    <div class="shrink-0 px-4 py-3 bg-white/50 border-b border-slate-200 flex items-center justify-between gap-4">
+    <div class="shrink-0 px-4 py-3 bg-white/50 border-b border-slate-200 flex items-center justify-between gap-4 backdrop-blur-sm">
       <div class="relative w-full max-w-sm">
         <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
         <input 
           v-model="searchQuery"
           type="text" 
           placeholder="Search by name or ID..." 
-          class="w-full pl-9 pr-4 py-1.5 bg-white border border-slate-300 rounded-md text-sm focus:ring-1 focus:ring-black focus:border-black outline-none transition-all placeholder:text-slate-400" 
+          class="w-full pl-9 pr-4 py-1.5 bg-white border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-black/5 focus:border-black outline-none transition-all placeholder:text-slate-400" 
         />
       </div>
 
@@ -191,10 +254,10 @@ onMounted(fetchOrgs)
           <div class="w-1/6">Status</div>
           <div class="w-1/6">Branches</div>
           <div class="w-1/6">Staff</div>
-          <div class="w-1/6 text-right">Joined</div>
+          <div class="w-1/6 text-right">Actions</div> 
         </div>
 
-        <div class="flex-1 overflow-y-auto">
+        <div class="flex-1 overflow-y-auto custom-scrollbar">
           <div v-if="loading" class="h-full flex items-center justify-center">
             <Loader2 class="w-6 h-6 animate-spin text-slate-300" />
           </div>
@@ -210,12 +273,12 @@ onMounted(fetchOrgs)
               class="px-4 py-2.5 flex items-center hover:bg-slate-50 transition-colors group text-sm"
             >
               <div class="w-1/3 flex items-center gap-3">
-                <div class="w-8 h-8 rounded bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-xs border border-slate-200">
+                <div class="w-8 h-8 rounded bg-slate-100 text-slate-500 flex items-center justify-center font-bold text-xs border border-slate-200 shrink-0">
                   {{ org.name.substring(0,2).toUpperCase() }}
                 </div>
                 <div class="min-w-0">
                   <div class="font-bold text-slate-900 truncate">{{ org.name }}</div>
-                  <div class="text-[10px] text-slate-400 font-mono truncate max-w-37.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div class="text-[10px] text-slate-400 font-mono truncate opacity-0 group-hover:opacity-100 transition-opacity">
                     {{ org.id }}
                   </div>
                 </div>
@@ -227,16 +290,26 @@ onMounted(fetchOrgs)
                 </span>
               </div>
 
-              <div class="w-1/6 text-slate-600 font-medium">
+              <div class="w-1/6 text-slate-600 font-medium pl-2">
                 {{ org.stores[0]?.count || 0 }}
               </div>
 
-              <div class="w-1/6 text-slate-600 font-medium">
+              <div class="w-1/6 text-slate-600 font-medium pl-2">
                 {{ org.profiles[0]?.count || 0 }}
               </div>
 
-              <div class="w-1/6 text-right text-slate-400 text-xs font-mono">
-                {{ new Date(org.created_at).toLocaleDateString() }}
+              <div class="w-1/6 flex justify-end items-center gap-2">
+                <span class="text-slate-400 text-xs font-mono hidden xl:inline-block mr-2">
+                  {{ new Date(org.created_at).toLocaleDateString() }}
+                </span>
+                
+                <button 
+                  @click.stop="deleteOrg(org.id, org.name)" 
+                  class="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  title="Delete Organization"
+                >
+                  <Trash2 class="w-4 h-4" />
+                </button>
               </div>
             </div>
           </div>

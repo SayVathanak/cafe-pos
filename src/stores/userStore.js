@@ -27,7 +27,7 @@ export const useUserStore = defineStore("user", {
         .from("profiles")
         .select("role, store_id, organization_id, stores(name)")
         .eq("id", user.id)
-        .single();
+        .maybeSingle();
 
       if (profile) {
         this.user = user;

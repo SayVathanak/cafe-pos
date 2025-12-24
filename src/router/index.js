@@ -8,14 +8,19 @@ const routes = [
     name: "login",
     component: () => import("../views/LoginView.vue"),
   },
+  // ✅ FIX: Allow both "/" and "/pos" to load the POS
   {
     path: "/",
+    redirect: "/pos", // Redirect root to /pos for consistency
+  },
+  {
+    path: "/pos", // Matches the path from your error log
     name: "pos",
-    component: () => import("../views/POSView.vue"),
+    component: () => import("../views/POSView.vue"), // Ensure this file exists!
     meta: { requiresAuth: true },
   },
   {
-    path: "/setup-branch",
+    path: "/setup-branch", // This matches your Onboarding URL
     name: "BranchSetup",
     component: () => import("../views/BranchSetup.vue"),
   },
@@ -64,8 +69,14 @@ const routes = [
     beforeEnter: async (to, from, next) => {
       const userStore = useUserStore();
       if (!userStore.role) await userStore.fetchUserProfile();
+      // Simple logic: if super_admin allow, else go to normal admin
       userStore.role === "super_admin" ? next() : next("/admin");
     },
+  },
+  // Optional: Catch-all for 404s (Redirects unknown paths to POS)
+  {
+    path: "/:pathMatch(.*)*",
+    redirect: "/pos",
   },
 ];
 
@@ -83,7 +94,7 @@ router.beforeEach(async (to, from, next) => {
   // 2. Profile Load Guard
   if (session && !userStore.role) await userStore.fetchUserProfile();
 
-  // 3. Role Access Guard (Prevent Staff from accessing Management)
+  // 3. Role Access Guard
   const managerRoutes = ["AdminStaff", "AdminStores", "admin-settings"];
   if (managerRoutes.includes(to.name) && userStore.role === "staff") {
     return next("/admin");
