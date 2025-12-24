@@ -16,9 +16,10 @@ export default defineConfig({
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // Increase limit to 5MB (Default is 2MB)
       },
       manifest: {
-        name: "SAYON Coffee",
-        short_name: "SAYON",
-        description: "SAYON Coffee POS",
+        name: "Cambodge POS - Modern Business Terminal",
+        short_name: "Cambodge POS",
+        description:
+          "Lightning-fast POS system for cafes, restaurants & retail. Powered by Cambodge Business Solutions.",
         theme_color: "#ffffff",
         background_color: "#ffffff",
         display: "standalone",
