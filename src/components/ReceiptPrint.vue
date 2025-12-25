@@ -19,7 +19,7 @@ const settings = ref({
   service_charge: 0,
   exchange_rate: 4100,
   paper_size: "58mm",
-  use_logo_header: true // Default to logo if available
+  use_logo_header: true 
 });
 
 onMounted(async () => {
@@ -33,9 +33,7 @@ onMounted(async () => {
 
   if (data) {
     settings.value = { ...settings.value, ...data };
-    // Fallback if paper size is missing
     if (!data.paper_size) settings.value.paper_size = "58mm";
-    // Fallback if use_logo_header is missing (default to true for backward compatibility)
     if (data.use_logo_header === undefined) settings.value.use_logo_header = true;
   }
 });
@@ -43,15 +41,22 @@ onMounted(async () => {
 const formatCurrency = (val) => new Intl.NumberFormat("en-US", { style: 'currency', currency: 'USD' }).format(val || 0);
 const formatRiel = (val) => new Intl.NumberFormat("km-KH").format(val || 0);
 
-// Calculations - prices are in Riel
+// NEW: Helper to convert item prices from Riel to USD before displaying
+const convertToUSD = (rielValue) => {
+  const rate = settings.value.exchange_rate || 4100;
+  return (rielValue || 0) / rate;
+};
+
+// Calculations - prices are in Riel from DB
 const subtotalRiel = computed(() => props.order?.total || props.order?.total_amount || 0);
 const taxAmount = computed(() => (subtotalRiel.value * settings.value.tax_rate) / 100);
 const serviceAmount = computed(() => (subtotalRiel.value * settings.value.service_charge) / 100);
 const totalRiel = computed(() => {
   const total = subtotalRiel.value + taxAmount.value + serviceAmount.value;
-  return Math.round(total / 100) * 100; // Round to nearest 100 Riel
+  return Math.round(total / 100) * 100; 
 });
-// Convert Riel to USD
+
+// Convert Totals to USD
 const subtotal = computed(() => subtotalRiel.value / settings.value.exchange_rate);
 const grandTotal = computed(() => totalRiel.value / settings.value.exchange_rate);
 
@@ -63,7 +68,6 @@ const formattedDate = computed(() => {
   });
 });
 
-// Computed property to determine what to show in header
 const showLogo = computed(() => {
   return settings.value.use_logo_header && settings.value.logo_url;
 });
@@ -81,9 +85,7 @@ defineExpose({ print });
     <div id="receipt-container" v-if="order" :class="settings.paper_size === '80mm' ? 'paper-80' : 'paper-58'">
       
       <div class="header">
-        <!-- Show logo only if use_logo_header is true AND logo_url exists -->
         <img v-if="showLogo" :src="settings.logo_url" class="logo-img" />
-        <!-- Show brand name if logo is not being used -->
         <h2 v-else class="brand">{{ settings.receipt_header?.toUpperCase() }}</h2>
         
         <div class="address">
@@ -111,8 +113,8 @@ defineExpose({ print });
             </template>
           </div>
           <div class="item-math">
-            <span>{{ item.qty }} x {{ formatCurrency(item.price) }}</span>
-            <span class="font-bold">{{ formatCurrency(item.price * item.qty) }}</span>
+            <span>{{ item.qty }} x {{ formatCurrency(convertToUSD(item.price)) }}</span>
+            <span class="font-bold">{{ formatCurrency(convertToUSD(item.price * item.qty)) }}</span>
           </div>
         </div>
       </div>
@@ -123,11 +125,11 @@ defineExpose({ print });
         <div class="sub-row"><span>Subtotal:</span><span>{{ formatCurrency(subtotal) }}</span></div>
         
         <div v-if="settings.tax_rate > 0" class="sub-row text-xs text-slate-500">
-          <span>VAT ({{ settings.tax_rate }}%):</span><span>{{ formatCurrency(taxAmount) }}</span>
+          <span>VAT ({{ settings.tax_rate }}%):</span><span>{{ formatCurrency(taxAmount / settings.exchange_rate) }}</span>
         </div>
         
         <div v-if="settings.service_charge > 0" class="sub-row text-xs text-slate-500">
-          <span>Service ({{ settings.service_charge }}%):</span><span>{{ formatCurrency(serviceAmount) }}</span>
+          <span>Service ({{ settings.service_charge }}%):</span><span>{{ formatCurrency(serviceAmount / settings.exchange_rate) }}</span>
         </div>
 
         <div class="separator-light"></div>
@@ -160,6 +162,7 @@ defineExpose({ print });
 </template>
 
 <style>
+/* ... your existing styles (no changes needed) ... */
 #receipt-container { display: none; }
 
 @media print {
@@ -174,16 +177,13 @@ defineExpose({ print });
     line-height: 1.3;
   }
 
-  /* Paper Sizes */
   .paper-58 { width: 58mm; padding: 4px 2px; font-size: 11px; }
   .paper-80 { width: 80mm; padding: 10px 15px; font-size: 13px; }
 
-  /* Utilities */
   .font-bold { font-weight: 700; }
   .font-khmer { font-family: "Preahvihear", cursive; font-weight: 400; }
   .mt-1 { margin-top: 2px; }
   
-  /* Header */
   .header { text-align: center; margin-bottom: 5px; }
   .brand { font-size: 16px; font-weight: 800; margin: 5px 0; }
   .logo-img { max-width: 60%; max-height: 60px; margin: 0 auto 5px auto; object-fit: contain; }
