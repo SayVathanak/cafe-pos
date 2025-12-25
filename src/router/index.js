@@ -8,19 +8,18 @@ const routes = [
     name: "login",
     component: () => import("../views/LoginView.vue"),
   },
-  // ✅ FIX: Allow both "/" and "/pos" to load the POS
   {
     path: "/",
-    redirect: "/pos", // Redirect root to /pos for consistency
+    redirect: "/pos",
   },
   {
-    path: "/pos", // Matches the path from your error log
+    path: "/pos",
     name: "pos",
-    component: () => import("../views/POSView.vue"), // Ensure this file exists!
+    component: () => import("../views/POSView.vue"),
     meta: { requiresAuth: true },
   },
   {
-    path: "/setup-branch", // This matches your Onboarding URL
+    path: "/setup-branch",
     name: "BranchSetup",
     component: () => import("../views/BranchSetup.vue"),
   },
@@ -61,6 +60,7 @@ const routes = [
       },
     ],
   },
+  // --- SUPER ADMIN DASHBOARD ---
   {
     path: "/super-admin",
     name: "super-admin",
@@ -69,11 +69,22 @@ const routes = [
     beforeEnter: async (to, from, next) => {
       const userStore = useUserStore();
       if (!userStore.role) await userStore.fetchUserProfile();
-      // Simple logic: if super_admin allow, else go to normal admin
       userStore.role === "super_admin" ? next() : next("/admin");
     },
   },
-  // Optional: Catch-all for 404s (Redirects unknown paths to POS)
+  // --- NEW: GLOBAL MENU MANAGER ---
+  {
+    path: "/global-menu",
+    name: "global-menu",
+    component: () => import("../views/GlobalMenuManager.vue"), // ✅ Loads your new file
+    meta: { requiresAuth: true },
+    beforeEnter: async (to, from, next) => {
+      const userStore = useUserStore();
+      if (!userStore.role) await userStore.fetchUserProfile();
+      userStore.role === "super_admin" ? next() : next("/admin");
+    },
+  },
+
   {
     path: "/:pathMatch(.*)*",
     redirect: "/pos",
@@ -88,13 +99,9 @@ router.beforeEach(async (to, from, next) => {
   } = await supabase.auth.getSession();
   const userStore = useUserStore();
 
-  // 1. Auth Guard
   if (to.meta.requiresAuth && !session) return next("/login");
-
-  // 2. Profile Load Guard
   if (session && !userStore.role) await userStore.fetchUserProfile();
 
-  // 3. Role Access Guard
   const managerRoutes = ["AdminStaff", "AdminStores", "admin-settings"];
   if (managerRoutes.includes(to.name) && userStore.role === "staff") {
     return next("/admin");
