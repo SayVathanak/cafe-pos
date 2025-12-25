@@ -79,9 +79,9 @@ const isCollapsed = ref(false);
       </div>
     </aside>
 
-    <nav class="lg:hidden fixed bottom-0 w-full bg-white/95 backdrop-blur border-t z-50 flex justify-around py-3">
+    <nav class="lg:hidden fixed bottom-0 pb-12 w-full bg-black rounded-t-xl backdrop-blur z-50 flex justify-around pt-6">
       <button @click="router.push('/')" class="flex flex-col items-center gap-1 text-slate-400"><ArrowLeft class="w-6 h-6"/><span class="text-[9px] font-bold">POS</span></button>
-      <router-link v-for="item in visibleMenuItems.slice(0,3)" :key="item.path" :to="item.path" class="flex flex-col items-center gap-1" :class="isActive(item.path)?'text-indigo-600':'text-slate-400'"><component :is="item.icon" class="w-6 h-6"/><span class="text-[9px] font-bold">{{item.name}}</span></router-link>
+      <router-link v-for="item in visibleMenuItems.slice(0,3)" :key="item.path" :to="item.path" class="flex flex-col items-center gap-1" :class="isActive(item.path)?'text-zinc-600':'text-slate-400'"><component :is="item.icon" class="w-6 h-6"/><span class="text-[9px] font-bold">{{item.name}}</span></router-link>
       <button @click="showMobileMenu=true" class="flex flex-col items-center gap-1 text-slate-400"><MenuIcon class="w-6 h-6"/><span class="text-[9px] font-bold">More</span></button>
     </nav>
 
@@ -90,13 +90,13 @@ const isCollapsed = ref(false);
       <div class="bg-white w-full rounded-t-3xl p-6 relative z-10 pb-20">
          <div class="flex justify-between items-center mb-6">
            <div class="flex items-center gap-3">
-             <div class="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-bold">{{userStore.storeName?.charAt(0)}}</div>
+             <div class="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white font-bold">{{userStore.storeName?.charAt(0)}}</div>
              <div><h3 class="font-bold">{{userStore.storeName}}</h3><p class="text-xs text-slate-500 uppercase">{{userStore.role}}</p></div>
            </div>
            <button @click="showMobileMenu=false" class="p-2 bg-slate-100 rounded-full"><XIcon class="w-5 h-5"/></button>
          </div>
          <div class="grid grid-cols-4 gap-4 mb-6">
-           <router-link v-for="item in visibleMenuItems" :key="item.path" :to="item.path" @click="showMobileMenu=false" class="flex flex-col items-center gap-2"><div class="w-14 h-14 rounded-2xl flex items-center justify-center" :class="isActive(item.path)?'bg-indigo-600 text-white':'bg-slate-50 text-slate-600'"><component :is="item.icon" class="w-6 h-6"/></div><span class="text-[10px] font-bold">{{item.name}}</span></router-link>
+           <router-link v-for="item in visibleMenuItems" :key="item.path" :to="item.path" @click="showMobileMenu=false" class="flex flex-col items-center gap-2"><div class="w-14 h-14 rounded-2xl flex items-center justify-center" :class="isActive(item.path)?'bg-black text-white':'bg-slate-50 text-slate-600'"><component :is="item.icon" class="w-6 h-6"/></div><span class="text-[10px] font-bold">{{item.name}}</span></router-link>
          </div>
          <button @click="handleLogout" class="w-full p-3.5 rounded-xl bg-red-50 text-red-600 font-bold flex justify-center gap-2"><LogOut class="w-5 h-5"/> Sign Out</button>
       </div>
