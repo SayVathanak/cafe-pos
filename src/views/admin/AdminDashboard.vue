@@ -10,7 +10,8 @@ import {
 } from 'chart.js'
 import { 
   TrendingUp, ArrowUpRight, ArrowDownRight, DollarSign, 
-  ShoppingBag, CreditCard, Clock, Package, ChevronRight, Store 
+  ShoppingBag, CreditCard, Clock, Package, ChevronRight, Store, 
+  Wallet, QrCode, Banknote 
 } from 'lucide-vue-next'
 
 ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale)
@@ -20,7 +21,7 @@ const userStore = useUserStore()
 
 // State
 const loading = ref(true)
-const timeRange = ref('30') // 'today', '7', '30'
+const timeRange = ref('30') 
 const selectedStore = ref('all') 
 const stores = ref([]) 
 const stats = ref({ 
@@ -28,18 +29,19 @@ const stats = ref({
   orders: 0, ordersGrowth: 0,
   avg: 0, avgGrowth: 0
 })
+const paymentStats = ref({ cash: 0, aba: 0, acleda: 0 })
 const recentOrders = ref([])
 const topProducts = ref([])
 const chartData = ref({ labels: [], datasets: [] })
 
-// Chart Config
+// Compact Chart Config
 const barOptions = {
   responsive: true,
   maintainAspectRatio: false,
   plugins: { legend: { display: false } },
   scales: {
-    x: { grid: { display: false }, ticks: { font: { size: 10, family: 'monospace' }, color: '#94a3b8' } },
-    y: { border: { display: false }, grid: { color: '#f1f5f9' }, ticks: { callback: (val) => val >= 1000 ? `${val/1000}k` : val, font: { size: 10, family: 'monospace' }, color: '#94a3b8' } }
+    x: { grid: { display: false }, ticks: { font: { size: 9, family: 'monospace' }, color: '#94a3b8' } },
+    y: { border: { display: false }, grid: { color: '#f1f5f9' }, ticks: { callback: (val) => val >= 1000 ? `${val/1000}k` : val, font: { size: 9, family: 'monospace' }, color: '#94a3b8' } }
   }
 }
 
@@ -54,21 +56,13 @@ const getGradient = (ctx, chartArea) => {
 }
 const viewAllOrders = () => router.push('/admin/orders')
 
-// --- DATA FETCHING ---
-
-// 1. Fetch Stores (FIXED: Filter by Organization)
+// --- DATA FETCHING (Same logic as before) ---
 const fetchStores = async () => {
   if (!userStore.organizationId) return
-
-  const { data } = await supabase
-    .from('stores')
-    .select('id, name')
-    .eq('organization_id', userStore.organizationId) // <--- CRITICAL FIX
-  
+  const { data } = await supabase.from('stores').select('id, name').eq('organization_id', userStore.organizationId)
   stores.value = data || []
 }
 
-// 2. Fetch Dashboard Data
 const fetchDashboardData = async () => {
   if (!userStore.organizationId) return
   loading.value = true
@@ -83,36 +77,18 @@ const fetchDashboardData = async () => {
   if (timeRange.value === 'today') prevStartDate.setDate(startDate.getDate() - 1)
   else prevStartDate.setDate(startDate.getDate() - parseInt(timeRange.value))
 
-  // Base Queries
-  let currentQuery = supabase
-    .from('orders')
-    .select('total_amount, created_at, drinks')
-    .gte('created_at', startDate.toISOString())
-    .lte('created_at', now.toISOString())
-    // --- 🔒 GLOBAL SECURITY FIX: ALWAYS FILTER BY ORGANIZATION ---
-    .eq('organization_id', userStore.organizationId)
+  // Queries
+  let currentQuery = supabase.from('orders').select('total_amount, created_at, drinks, payment_method').gte('created_at', startDate.toISOString()).lte('created_at', now.toISOString()).eq('organization_id', userStore.organizationId)
+  let prevQuery = supabase.from('orders').select('total_amount').gte('created_at', prevStartDate.toISOString()).lt('created_at', startDate.toISOString()).eq('organization_id', userStore.organizationId)
 
-  let prevQuery = supabase
-    .from('orders')
-    .select('total_amount')
-    .gte('created_at', prevStartDate.toISOString())
-    .lt('created_at', startDate.toISOString())
-    // --- 🔒 GLOBAL SECURITY FIX ---
-    .eq('organization_id', userStore.organizationId)
-
-  // --- SPECIFIC STORE FILTERING ---
   if (userStore.role !== 'admin') {
-    // IF STAFF: Force them to see ONLY their store
     currentQuery = currentQuery.eq('store_id', userStore.storeId)
     prevQuery = prevQuery.eq('store_id', userStore.storeId)
-  } 
-  else if (selectedStore.value !== 'all') {
-    // IF ADMIN: Respect the dropdown selection
+  } else if (selectedStore.value !== 'all') {
     currentQuery = currentQuery.eq('store_id', selectedStore.value)
     prevQuery = prevQuery.eq('store_id', selectedStore.value)
   }
 
-  // Execute Queries
   const { data: currentOrders } = await currentQuery
   const { data: prevOrders } = await prevQuery
 
@@ -131,33 +107,31 @@ const fetchDashboardData = async () => {
     avgGrowth: 0 
   }
 
-  // Recent Orders Query
-  let recentQuery = supabase
-    .from('orders')
-    .select('*')
-    .eq('organization_id', userStore.organizationId) // <--- FIX
-    .order('created_at', { ascending: false })
-    .limit(5)
-  
-  if (userStore.role !== 'admin') {
-    recentQuery = recentQuery.eq('store_id', userStore.storeId)
-  } else if (selectedStore.value !== 'all') {
-    recentQuery = recentQuery.eq('store_id', selectedStore.value)
-  }
+  // Payment Stats
+  let cashTotal = 0, abaTotal = 0, acledaTotal = 0;
+  currentOrders?.forEach(order => {
+    const method = (order.payment_method || 'Cash').toLowerCase();
+    if (method.includes('aba')) abaTotal += order.total_amount;
+    else if (method.includes('acleda')) acledaTotal += order.total_amount;
+    else cashTotal += order.total_amount;
+  });
+  paymentStats.value = { cash: cashTotal, aba: abaTotal, acleda: acledaTotal };
 
+  // Recent Orders
+  let recentQuery = supabase.from('orders').select('*').eq('organization_id', userStore.organizationId).order('created_at', { ascending: false }).limit(5)
+  if (userStore.role !== 'admin') recentQuery = recentQuery.eq('store_id', userStore.storeId)
+  else if (selectedStore.value !== 'all') recentQuery = recentQuery.eq('store_id', selectedStore.value)
   const { data: recentData } = await recentQuery
   recentOrders.value = recentData || []
 
-  // Top Products Logic
+  // Top Products
   const productMap = {}
   currentOrders?.forEach(order => {
     const items = order.drinks || [] 
     items.forEach(item => {
-      // Handle legacy string JSON or object
       const name = typeof item === 'string' ? JSON.parse(item).name : item.name
       const price = typeof item === 'string' ? JSON.parse(item).price : item.price
       const qty = item.qty || 1
-      
       if (!productMap[name]) productMap[name] = { name, qty: 0, revenue: 0 }
       productMap[name].qty += qty
       productMap[name].revenue += (price * qty)
@@ -171,7 +145,6 @@ const fetchDashboardData = async () => {
     const key = new Date(order.created_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
     chartMap[key] = (chartMap[key] || 0) + order.total_amount
   })
-  
   chartData.value = {
     labels: Object.keys(chartMap),
     datasets: [{
@@ -188,205 +161,194 @@ const fetchDashboardData = async () => {
       maxBarThickness: 40
     }]
   }
-
   loading.value = false
 }
 
-// Watchers
 watch([timeRange, selectedStore], () => fetchDashboardData())
-
 onMounted(() => {
   if (userStore.isAdminOrSuper) fetchStores()
   fetchDashboardData()
-  
-  // Realtime Subscription (Already Correct)
   const subscription = supabase.channel('dashboard-updates')
-    .on(
-      'postgres_changes', 
-      { 
-        event: 'INSERT', 
-        schema: 'public', 
-        table: 'orders',
-        filter: `organization_id=eq.${userStore.organizationId}`
-      }, 
-      () => fetchDashboardData()
-    )
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders', filter: `organization_id=eq.${userStore.organizationId}` }, () => fetchDashboardData())
     .subscribe()
-    
-  // Cleanup
-  onUnmounted(() => {
-    supabase.removeChannel(subscription)
-  })
+  onUnmounted(() => supabase.removeChannel(subscription))
 })
 </script>
 
 <template>
-  <div class="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">
+  <div class="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">
     
-    <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+    <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
       <div>
-        <h2 class="text-2xl font-semibold tracking-tight text-slate-900">
-           {{ selectedStore !== 'all' ? stores.find(s => s.id === selectedStore)?.name : 'Dashboard Overview' }}
+        <h2 class="text-xl font-bold tracking-tight text-slate-900">
+           {{ selectedStore !== 'all' ? stores.find(s => s.id === selectedStore)?.name : 'Dashboard' }}
         </h2>
-        <p class="text-xs text-slate-500 mt-1">Real-time store performance and analytics.</p>
       </div>
       
-      <div class="flex flex-col sm:flex-row gap-3">
+      <div class="flex items-center gap-2">
         <div v-if="userStore.role === 'admin'" class="relative">
-          <Store class="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-          <select 
-            v-model="selectedStore" 
-            class="pl-9 pr-8 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:border-slate-900 shadow-sm appearance-none cursor-pointer hover:border-slate-300 transition-all min-w-35"
-          >
+          <Store class="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
+          <select v-model="selectedStore" class="pl-8 pr-7 py-1.5 bg-white border border-slate-200 rounded-lg text-[11px] font-semibold text-slate-700 focus:outline-none focus:border-slate-900 shadow-sm cursor-pointer hover:border-slate-300 transition-all">
             <option value="all">All Stores</option>
-            <option v-for="store in stores" :key="store.id" :value="store.id">
-              {{ store.name }}
-            </option>
+            <option v-for="store in stores" :key="store.id" :value="store.id">{{ store.name }}</option>
           </select>
-          <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-             <div class="w-0 h-0 border-l-[3px] border-l-transparent border-r-[3px] border-r-transparent border-t-4 border-t-slate-400"></div>
-          </div>
         </div>
 
-        <div class="grid grid-cols-3 gap-1 p-1 bg-white border border-slate-200 rounded-lg shadow-sm">
-          <button 
-            v-for="range in [{l:'Today', v:'today'}, {l:'7 Days', v:'7'}, {l:'30 Days', v:'30'}]" 
-            :key="range.v"
-            @click="timeRange = range.v"
-            class="px-3 py-1.5 text-xs font-medium rounded-md transition-all text-center"
-            :class="timeRange === range.v ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:text-slate-900'"
-          >
+        <div class="flex p-1 bg-white border border-slate-200 rounded-lg shadow-sm gap-1">
+          <button v-for="range in [{l:'Today', v:'today'}, {l:'7D', v:'7'}, {l:'30D', v:'30'}]" :key="range.v" @click="timeRange = range.v"
+            class="px-2.5 py-1 text-[10px] font-semibold rounded-md transition-all text-center uppercase tracking-wide"
+            :class="timeRange === range.v ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-900'">
             {{ range.l }}
           </button>
         </div>
       </div>
     </div>
 
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm relative overflow-hidden group">
-        <div class="flex justify-between items-start mb-4">
-          <div class="p-2 bg-slate-50 rounded-lg group-hover:bg-slate-900 group-hover:text-white transition-colors">
-            <DollarSign class="w-5 h-5 text-slate-400 group-hover:text-white" />
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+      
+      <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm relative overflow-hidden group lg:col-span-2">
+        <div class="flex justify-between items-start mb-2">
+          <div class="p-1.5 bg-slate-50 rounded-md group-hover:bg-slate-900 group-hover:text-white transition-colors">
+            <DollarSign class="w-4 h-4 text-slate-400 group-hover:text-white" />
           </div>
-          <div class="flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full" 
+          <div class="flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-md" 
             :class="stats.revenueGrowth >= 0 ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'">
             <component :is="stats.revenueGrowth >= 0 ? ArrowUpRight : ArrowDownRight" class="w-3 h-3" />
             {{ Math.abs(stats.revenueGrowth).toFixed(1) }}%
           </div>
         </div>
-        <p class="text-[10px] uppercase font-semibold text-slate-400 tracking-widest">Total Revenue</p>
-        <h3 class="text-2xl font-semibold text-slate-900 mt-1">{{ formatCurrency(stats.revenue) }}</h3>
-      </div>
+        
+        <p class="text-[10px] uppercase font-semibold text-slate-400 tracking-wider">Total Revenue</p>
+        <h3 class="text-2xl font-semibold text-slate-900 mt-0.5 mb-3">{{ formatCurrency(stats.revenue) }}</h3>
 
-      <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm relative overflow-hidden group">
-        <div class="flex justify-between items-start mb-4">
-          <div class="p-2 bg-slate-50 rounded-lg group-hover:bg-slate-900 group-hover:text-white transition-colors">
-            <ShoppingBag class="w-5 h-5 text-slate-400 group-hover:text-white" />
+        <div class="grid grid-cols-3 gap-2 border-t border-slate-100 pt-3">
+          <div>
+             <div class="flex items-center gap-1 mb-0.5">
+               <QrCode class="w-3 h-3 text-blue-500" />
+               <span class="text-[9px] uppercase font-semibold text-slate-400 tracking-wider">ABA</span>
+             </div>
+             <div class="text-xs font-semibold text-slate-700">{{ formatCurrency(paymentStats.aba) }}</div>
           </div>
-          <div class="flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full" 
-            :class="stats.ordersGrowth >= 0 ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'">
-            <component :is="stats.ordersGrowth >= 0 ? ArrowUpRight : ArrowDownRight" class="w-3 h-3" />
-            {{ Math.abs(stats.ordersGrowth).toFixed(1) }}%
+          <div class="border-l border-slate-100 pl-3">
+             <div class="flex items-center gap-1 mb-0.5">
+               <CreditCard class="w-3 h-3 text-indigo-500" />
+               <span class="text-[9px] uppercase font-semibold text-slate-400 tracking-wider">Acleda</span>
+             </div>
+             <div class="text-xs font-semibold text-slate-700">{{ formatCurrency(paymentStats.acleda) }}</div>
+          </div>
+          <div class="border-l border-slate-100 pl-3">
+             <div class="flex items-center gap-1 mb-0.5">
+               <Banknote class="w-3 h-3 text-emerald-500" />
+               <span class="text-[9px] uppercase font-semibold text-slate-400 tracking-wider">Cash</span>
+             </div>
+             <div class="text-xs font-semibold text-slate-700">{{ formatCurrency(paymentStats.cash) }}</div>
           </div>
         </div>
-        <p class="text-[10px] uppercase font-semibold text-slate-400 tracking-widest">Total Orders</p>
-        <h3 class="text-2xl font-semibold text-slate-900 mt-1">{{ stats.orders }}</h3>
       </div>
 
-      <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm relative overflow-hidden group sm:col-span-2 lg:col-span-1">
-        <div class="flex justify-between items-start mb-4">
-          <div class="p-2 bg-slate-50 rounded-lg group-hover:bg-slate-900 group-hover:text-white transition-colors">
-            <CreditCard class="w-5 h-5 text-slate-400 group-hover:text-white" />
+      <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm relative overflow-hidden group flex flex-col justify-between">
+        <div>
+          <div class="flex justify-between items-start mb-2">
+            <div class="p-1.5 bg-slate-50 rounded-md group-hover:bg-slate-900 group-hover:text-white transition-colors">
+              <ShoppingBag class="w-4 h-4 text-slate-400 group-hover:text-white" />
+            </div>
+            <div class="flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-md" 
+              :class="stats.ordersGrowth >= 0 ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'">
+              <component :is="stats.ordersGrowth >= 0 ? ArrowUpRight : ArrowDownRight" class="w-3 h-3" />
+              {{ Math.abs(stats.ordersGrowth).toFixed(1) }}%
+            </div>
           </div>
+          <p class="text-[10px] uppercase font-semibold text-slate-400 tracking-wider">Orders</p>
+          <h3 class="text-2xl font-semibold text-slate-900 mt-0.5">{{ stats.orders }}</h3>
         </div>
-        <p class="text-[10px] uppercase font-semibold text-slate-400 tracking-widest">Avg. Order Value</p>
-        <h3 class="text-2xl font-semibold text-slate-900 mt-1">{{ formatCurrency(stats.avg) }}</h3>
+      </div>
+
+      <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm relative overflow-hidden group flex flex-col justify-between">
+        <div>
+          <div class="flex justify-between items-start mb-2">
+            <div class="p-1.5 bg-slate-50 rounded-md group-hover:bg-slate-900 group-hover:text-white transition-colors">
+              <CreditCard class="w-4 h-4 text-slate-400 group-hover:text-white" />
+            </div>
+          </div>
+          <p class="text-[10px] uppercase font-semibold text-slate-400 tracking-wider">Avg Value</p>
+          <h3 class="text-2xl font-semibold text-slate-900 mt-0.5">{{ formatCurrency(stats.avg) }}</h3>
+        </div>
       </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-      <div class="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-        <div class="flex items-center gap-2 mb-6">
-          <div class="p-1.5 bg-slate-50 rounded-md border border-slate-100"><TrendingUp class="w-4 h-4 text-slate-600" /></div>
-          <h3 class="font-semibold text-sm text-slate-900">Revenue Trends</h3>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
+      <div class="lg:col-span-2 bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+        <div class="flex items-center gap-2 mb-3">
+          <div class="p-1 bg-slate-50 rounded-md border border-slate-100"><TrendingUp class="w-3.5 h-3.5 text-slate-600" /></div>
+          <h3 class="font-bold text-xs text-slate-900 uppercase tracking-wide">Revenue Trends</h3>
         </div>
-        <div class="h-64 w-full">
+        <div class="h-48 w-full">
           <Bar v-if="!loading && chartData.labels.length" :data="chartData" :options="barOptions" />
           <div v-else class="h-full flex flex-col items-center justify-center text-slate-300 gap-2">
-            <div v-if="loading" class="w-8 h-8 border-2 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div>
-            <span v-else class="text-xs">No data for this period</span>
+            <div v-if="loading" class="w-6 h-6 border-2 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div>
+            <span v-else class="text-[10px]">No data</span>
           </div>
         </div>
       </div>
 
-      <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-        <div class="flex items-center gap-2 mb-6">
-          <div class="p-1.5 bg-slate-50 rounded-md border border-slate-100"><Package class="w-4 h-4 text-slate-600" /></div>
-          <h3 class="font-semibold text-sm text-slate-900">Top Items</h3>
+      <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+        <div class="flex items-center gap-2 mb-3">
+          <div class="p-1 bg-slate-50 rounded-md border border-slate-100"><Package class="w-3.5 h-3.5 text-slate-600" /></div>
+          <h3 class="font-bold text-xs text-slate-900 uppercase tracking-wide">Top Items</h3>
         </div>
-        <div class="space-y-4">
+        <div class="space-y-3">
           <div v-for="(item, idx) in topProducts" :key="idx" class="flex items-center justify-between group cursor-default">
-            <div class="flex items-center gap-3">
-              <span class="text-xs font-mono text-slate-400 w-4 group-hover:text-slate-900 transition-colors">0{{idx+1}}</span>
+            <div class="flex items-center gap-2">
+              <span class="text-[10px] font-mono text-slate-400 w-3 group-hover:text-slate-900 transition-colors">0{{idx+1}}</span>
               <div>
-                <p class="text-xs font-medium text-slate-900">{{ item.name }}</p>
-                <p class="text-[10px] text-slate-500">{{ item.qty }} sold</p>
+                <p class="text-[11px] font-semibold text-slate-900 leading-tight">{{ item.name }}</p>
+                <p class="text-[9px] text-slate-500">{{ item.qty }} sold</p>
               </div>
             </div>
-            <span class="text-xs font-semibold text-slate-700">{{ formatCurrency(item.revenue) }}</span>
+            <span class="text-[11px] font-semibold text-slate-700">{{ formatCurrency(item.revenue) }}</span>
           </div>
-          <div v-if="topProducts.length === 0" class="text-center py-8 text-xs text-slate-400">
-            No sales data yet
+          <div v-if="topProducts.length === 0" class="text-center py-8 text-[10px] text-slate-400">
+            No data yet
           </div>
         </div>
       </div>
     </div>
 
-    <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-      <div class="p-4 sm:p-6 border-b border-slate-50 flex items-center justify-between">
+    <div class="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+      <div class="px-4 py-3 border-b border-slate-50 flex items-center justify-between">
         <div class="flex items-center gap-2">
-          <div class="p-1.5 bg-slate-50 rounded-md border border-slate-100"><Clock class="w-4 h-4 text-slate-600" /></div>
-          <h3 class="font-semibold text-sm text-slate-900">Recent Orders</h3>
+          <div class="p-1 bg-slate-50 rounded-md border border-slate-100"><Clock class="w-3.5 h-3.5 text-slate-600" /></div>
+          <h3 class="font-bold text-xs text-slate-900 uppercase tracking-wide">Recent Orders</h3>
         </div>
-        
-        <button 
-          @click="viewAllOrders" 
-          class="flex items-center gap-1 text-[10px] font-semibold text-slate-500 hover:text-slate-900 uppercase tracking-wide transition-colors"
-        >
+        <button @click="viewAllOrders" class="flex items-center gap-1 text-[9px] font-semibold text-slate-500 hover:text-slate-900 uppercase tracking-wide transition-colors">
           View All <ChevronRight class="w-3 h-3" />
         </button>
       </div>
-
       <div class="overflow-x-auto scrollbar-hide">
         <table class="w-full text-left border-collapse">
-          <thead class="bg-slate-50/50 text-[10px] uppercase text-slate-400 font-semibold tracking-wider">
+          <thead class="bg-slate-50/50 text-[9px] uppercase text-slate-400 font-semibold tracking-wider">
             <tr>
-              <th class="px-4 sm:px-6 py-3 whitespace-nowrap">Order ID</th>
-              <th class="px-4 sm:px-6 py-3 whitespace-nowrap">Date</th>
-              <th class="px-4 sm:px-6 py-3 whitespace-nowrap">Items</th>
-              <th class="px-4 sm:px-6 py-3 text-right whitespace-nowrap">Amount</th>
-              <th class="px-4 sm:px-6 py-3 text-center whitespace-nowrap">Status</th>
+              <th class="px-4 py-2 whitespace-nowrap">ID</th>
+              <th class="px-4 py-2 whitespace-nowrap">Date</th>
+              <th class="px-4 py-2 whitespace-nowrap">Items</th>
+              <th class="px-4 py-2 whitespace-nowrap">Payment</th>
+              <th class="px-4 py-2 text-right whitespace-nowrap">Amount</th>
+              <th class="px-4 py-2 text-center whitespace-nowrap">Status</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-50">
             <tr v-for="order in recentOrders" :key="order.id" class="hover:bg-slate-50/50 transition-colors">
-              <td class="px-4 sm:px-6 py-3 text-xs font-mono text-slate-500 whitespace-nowrap">#{{ order.id }}</td>
-              <td class="px-4 sm:px-6 py-3 text-xs text-slate-600 whitespace-nowrap">{{ formatDate(order.created_at) }}</td>
-              <td class="px-4 sm:px-6 py-3 text-xs text-slate-900 font-medium whitespace-nowrap max-w-37.5 truncate">
-                {{ order.drinks?.length || 0 }} items
-              </td>
-              <td class="px-4 sm:px-6 py-3 text-xs font-semibold text-slate-900 text-right whitespace-nowrap">{{ formatCurrency(order.total_amount) }}</td>
-              <td class="px-4 sm:px-6 py-3 text-center whitespace-nowrap">
-                <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-green-50 text-green-700 border border-green-100">
-                  Completed
-                </span>
+              <td class="px-4 py-2 text-[10px] font-mono text-slate-500 whitespace-nowrap">#{{ order.id }}</td>
+              <td class="px-4 py-2 text-[10px] text-slate-600 whitespace-nowrap">{{ formatDate(order.created_at) }}</td>
+              <td class="px-4 py-2 text-[10px] text-slate-900 font-medium whitespace-nowrap max-w-32 truncate">{{ order.drinks?.length || 0 }} items</td>
+              <td class="px-4 py-2 text-[10px] text-slate-600 whitespace-nowrap">{{ order.payment_method || 'Cash' }}</td>
+              <td class="px-4 py-2 text-[10px] font-semibold text-slate-900 text-right whitespace-nowrap">{{ formatCurrency(order.total_amount) }}</td>
+              <td class="px-4 py-2 text-center whitespace-nowrap">
+                <span class="inline-flex items-center px-1.5 py-0.5 rounded-sm text-[9px] font-semibold bg-green-50 text-green-700 border border-green-100">Done</span>
               </td>
             </tr>
           </tbody>
         </table>
-        <div v-if="recentOrders.length === 0" class="p-8 text-center text-xs text-slate-400">
-          No orders found for this period.
-        </div>
       </div>
     </div>
   </div>

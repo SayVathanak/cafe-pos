@@ -10,7 +10,6 @@ const iceLevel = ref('Normal')
 const sugarOptions = ['0%', '25%', '50%', 'Normal', 'Sweet']
 const iceOptions = ['No Ice', 'Less Ice', 'Normal', 'Extra Ice']
 
-// Reset state when opening
 watch(() => props.isOpen, (open) => {
   if (open) {
     sugarLevel.value = 'Normal'; iceLevel.value = 'Normal'
@@ -31,7 +30,7 @@ const handleAdd = () => {
   <transition name="modal">
     <div v-if="isOpen" class="fixed inset-0 z-100 flex items-end sm:items-center justify-center p-0 sm:p-4">
       
-      <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-md transition-opacity" @click="$emit('close')"></div>
+      <div class="absolute inset-0 bg-black/60 transition-opacity" @click="$emit('close')"></div>
       
       <div class="relative bg-white w-full sm:max-w-md rounded-t-4xl sm:rounded-4xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
         

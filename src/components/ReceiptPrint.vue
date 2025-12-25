@@ -42,17 +42,16 @@ onMounted(async () => {
 const formatUSD = (val) => new Intl.NumberFormat("en-US", { style: 'currency', currency: 'USD' }).format(val || 0);
 const formatRiel = (val) => new Intl.NumberFormat("km-KH").format(val || 0);
 
-// Calculations - prices are in Riel (KHR) from DB
+// Calculations
 const subtotalRiel = computed(() => props.order?.total || props.order?.total_amount || 0);
 const taxAmount = computed(() => (subtotalRiel.value * settings.value.tax_rate) / 100);
 const serviceAmount = computed(() => (subtotalRiel.value * settings.value.service_charge) / 100);
 
 const totalRiel = computed(() => {
   const total = subtotalRiel.value + taxAmount.value + serviceAmount.value;
-  return Math.round(total / 100) * 100; // Round to nearest 100 Riel
+  return Math.round(total / 100) * 100; 
 });
 
-// Calculate USD Total for the final display only
 const grandTotalUSD = computed(() => totalRiel.value / settings.value.exchange_rate);
 
 const formattedDate = computed(() => {
@@ -94,7 +93,7 @@ defineExpose({ print });
       <div class="info-group">
         <div class="info-row"><span>Order #:</span><span class="font-bold">{{ order.id ? order.id.slice(0, 8).toUpperCase() : "---" }}</span></div>
         <div class="info-row"><span>Date:</span><span>{{ formattedDate }}</span></div>
-        </div>
+      </div>
 
       <div class="separator"></div>
 
@@ -128,14 +127,20 @@ defineExpose({ print });
 
         <div class="separator-light"></div>
 
+        <div class="sub-row text-xs font-bold uppercase mt-1">
+          <span>Paid via:</span><span>{{ order.payment_method || 'Cash' }}</span>
+        </div>
+
+        <div class="separator-light"></div>
+
         <div class="total-row main-total">
-          <span class="total-label">TOTAL (USD)</span>
-          <span class="total-money">{{ formatUSD(grandTotalUSD) }}</span>
+          <span class="total-label">TOTAL (KHR)</span>
+          <span class="font-khmer">{{ formatRiel(totalRiel) }}៛</span>
         </div>
         
-        <div class="total-row riel-total">
-          <span>Total (KHR)</span>
-          <span class="font-khmer">{{ formatRiel(totalRiel) }}៛</span>
+        <div class="total-row riel-total" style="font-size: 0.9em; font-weight: 500; color: #555;">
+          <span>Total (USD)</span>
+          <span class="total-money">{{ formatUSD(grandTotalUSD) }}</span>
         </div>
       </div>
 
@@ -156,7 +161,6 @@ defineExpose({ print });
 </template>
 
 <style>
-/* Same CSS as before */
 #receipt-container { display: none; }
 
 @media print {

@@ -156,7 +156,9 @@ onMounted(fetchSettings);
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-12 gap-4 sm:gap-5">
-            <div class="sm:col-span-3 lg:col-span-2 flex justify-center sm:justify-start">
+            <div
+              class="sm:col-span-3 lg:col-span-2 flex justify-center sm:justify-start"
+            >
               <div
                 class="relative group w-20 h-20 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-center overflow-hidden"
               >
@@ -186,7 +188,9 @@ onMounted(fetchSettings);
               </div>
             </div>
 
-            <div class="sm:col-span-9 lg:col-span-10 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div
+              class="sm:col-span-9 lg:col-span-10 grid grid-cols-1 sm:grid-cols-2 gap-3"
+            >
               <div class="sm:col-span-2">
                 <label
                   class="block text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1 ml-1"
@@ -238,7 +242,8 @@ onMounted(fetchSettings);
             >
               <div class="flex items-center gap-2">
                 <Receipt class="w-3.5 h-3.5 text-slate-500" />
-                <span class="text-[10px] font-bold text-slate-600 uppercase tracking-wide"
+                <span
+                  class="text-[10px] font-bold text-slate-600 uppercase tracking-wide"
                   >Use Logo on Receipt</span
                 >
               </div>
@@ -253,7 +258,11 @@ onMounted(fetchSettings);
               </div>
             </div>
             <p class="text-[9px] text-slate-400 mt-2 ml-1">
-              {{ form.use_logo_header ? 'Receipt will show logo image' : 'Receipt will show brand name text' }}
+              {{
+                form.use_logo_header
+                  ? "Receipt will show logo image"
+                  : "Receipt will show brand name text"
+              }}
             </p>
           </div>
         </section>
@@ -295,7 +304,8 @@ onMounted(fetchSettings);
               @click="form.require_shift = !form.require_shift"
               class="flex items-center justify-between px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors"
             >
-              <span class="text-[10px] font-bold text-slate-600 uppercase tracking-wide"
+              <span
+                class="text-[10px] font-bold text-slate-600 uppercase tracking-wide"
                 >Strict Shifts</span
               >
               <div
@@ -392,7 +402,9 @@ onMounted(fetchSettings);
         </section>
       </div>
 
-      <div class="lg:col-span-5 xl:col-span-4 lg:sticky lg:top-4 flex flex-col items-center">
+      <div
+        class="lg:col-span-5 xl:col-span-4 lg:sticky lg:top-4 flex flex-col items-center"
+      >
         <div class="relative w-full max-w-70 mx-auto">
           <div
             class="absolute -top-2 left-0 w-full h-3 z-10 rotate-180"
@@ -412,18 +424,17 @@ onMounted(fetchSettings);
             class="bg-white shadow-[0_20px_50px_rgba(0,0,0,0.1)] p-6 pt-8 pb-8 text-[10px] font-mono leading-tight relative"
           >
             <div class="text-center mb-4">
-              <!-- Conditional rendering based on use_logo_header -->
               <div v-if="form.use_logo_header && form.logo_url">
                 <img
                   :src="form.logo_url"
-                  class="h-5 mx-auto mb-2 object-contain"
+                  class="h-10 mx-auto mb-2 object-contain"
                 />
               </div>
-              <div v-else class="font-black text-xs uppercase tracking-tight">
+              <div v-else class="font-black text-sm uppercase tracking-tight">
                 {{ form.receipt_header || "SHOP NAME" }}
               </div>
               <div
-                class="text-[8px] text-slate-400 leading-relaxed font-sans mt-1"
+                class="text-[9px] text-slate-500 leading-relaxed font-sans mt-1"
               >
                 {{ form.receipt_address || "123 Business St, Phnom Penh"
                 }}<br />
@@ -431,89 +442,126 @@ onMounted(fetchSettings);
               </div>
             </div>
 
-            <div class="border-b border-dashed border-slate-200 my-3"></div>
+            <div class="border-b border-dashed border-slate-300 my-3"></div>
 
             <div class="space-y-3 mb-4">
-              <div class="flex justify-between font-bold">
+              <div class="flex justify-between font-bold text-slate-900">
                 <span>1x Iced Latte (Large)</span>
-                <span>$3.50</span>
+                <span>14,400 ៛</span>
               </div>
-              <div class="text-[8px] text-slate-400 font-sans italic -mt-2">
+              <div class="text-[9px] text-slate-500 font-sans italic -mt-2">
                 Oat Milk, Less Sugar
               </div>
-              <div class="flex justify-between font-bold">
+              <div class="flex justify-between font-bold text-slate-900">
                 <span>1x Butter Croissant</span>
-                <span>$1.50</span>
+                <span>6,100 ៛</span>
               </div>
             </div>
 
             <div
-              class="border-t-[1.5px] border-slate-800 pt-3 space-y-1 font-sans"
+              class="border-t-[1.5px] border-slate-900 pt-3 space-y-1 font-sans"
             >
               <div
-                class="flex justify-between text-slate-400 font-bold text-[8px] uppercase tracking-wider"
+                class="flex justify-between text-slate-500 font-bold text-[9px] uppercase tracking-wider"
               >
                 <span>Subtotal</span>
-                <span>$5.00</span>
-              </div>
-              <div
-                v-if="showTax"
-                class="flex justify-between text-slate-400 font-bold text-[8px] uppercase tracking-wider"
-              >
-                <span>VAT ({{ form.tax_rate }}%)</span>
-                <span>${{ previewTax.toFixed(2) }}</span>
-              </div>
-              <div
-                v-if="showService"
-                class="flex justify-between text-slate-400 font-bold text-[8px] uppercase tracking-wider"
-              >
-                <span>Service ({{ form.service_charge }}%)</span>
-                <span>${{ previewService.toFixed(2) }}</span>
+                <span>{{ previewRiel.toLocaleString() }} ៛</span>
               </div>
 
               <div
-                class="flex justify-between items-center pt-2 mt-1 border-t border-slate-100"
+                v-if="showTax"
+                class="flex justify-between text-slate-500 font-bold text-[9px] uppercase tracking-wider"
               >
-                <span class="text-[9px] font-bold uppercase text-slate-500"
-                  >Total USD</span
-                >
-                <span class="text-lg font-bold text-slate-800 tracking-tighter"
-                  >${{ previewTotal.toFixed(2) }}</span
+                <span>VAT ({{ form.tax_rate }}%)</span>
+                <span
+                  >{{
+                    (previewRiel * (form.tax_rate / 100)).toLocaleString()
+                  }}
+                  ៛</span
                 >
               </div>
               <div
-                class="flex justify-between items-center text-slate-400 font-bold"
+                v-if="showService"
+                class="flex justify-between text-slate-500 font-bold text-[9px] uppercase tracking-wider"
               >
-                <span class="text-[8px]"
-                  >KHR RATE ({{ form.exchange_rate }})</span
+                <span>Service ({{ form.service_charge }}%)</span>
+                <span
+                  >{{
+                    (previewRiel * (form.service_charge / 100)).toLocaleString()
+                  }}
+                  ៛</span
                 >
-                <span class="text-xs tracking-tighter"
-                  >{{ previewRiel.toLocaleString() }} ៛</span
+              </div>
+
+              <div class="border-b border-slate-200 my-2"></div>
+
+              <div
+                class="flex justify-between text-slate-900 font-bold text-[9px] uppercase tracking-wider mb-2"
+              >
+                <span>Paid via:</span>
+                <span>Cash</span>
+              </div>
+
+              <div class="border-b border-slate-200 my-2"></div>
+
+              <div class="flex justify-between items-center mt-1">
+                <span class="text-[10px] font-bold uppercase text-slate-900"
+                  >Total (KHR)</span
+                >
+                <span
+                  class="text-xl font-semibold text-slate-900 tracking-tighter"
+                >
+                  {{
+                    // Calculate KHR total including tax/service for preview
+                    (
+                      previewRiel +
+                      (showTax ? previewRiel * (form.tax_rate / 100) : 0) +
+                      (showService
+                        ? previewRiel * (form.service_charge / 100)
+                        : 0)
+                    ).toLocaleString()
+                  }}
+                  ៛
+                </span>
+              </div>
+
+              <div
+                class="flex justify-between items-center text-slate-500 font-medium mt-1"
+              >
+                <span class="text-[9px]">Total (USD)</span>
+                <span class="text-xs font-semibold tracking-tighter"
+                  >${{ previewTotal.toFixed(2) }}</span
                 >
               </div>
             </div>
 
-            <div class="border-b border-dashed border-slate-200 my-4"></div>
+            <div class="border-b border-dashed border-slate-300 my-4"></div>
 
             <div class="text-center space-y-4">
               <p
-                class="font-bold text-slate-500 uppercase text-[8px] tracking-tight leading-snug"
+                class="font-bold text-slate-900 uppercase text-[9px] tracking-tight leading-snug"
               >
                 {{ form.receipt_footer || "Thank you for your visit!" }}
               </p>
 
               <div
                 v-if="form.wifi_pass"
-                class="inline-block px-4 py-1.5 border border-slate-700 rounded-lg bg-slate-50"
+                class="inline-block px-3 py-1 border border-slate-900 rounded-md"
               >
                 <p
-                  class="text-[6px] font-bold text-slate-400 uppercase tracking-widest mb-0.5 font-sans"
+                  class="text-[7px] font-bold text-slate-500 uppercase tracking-widest mb-0.5"
                 >
-                  WiFi Password
+                  WIFI PASS
                 </p>
-                <p class="font-bold text-slate-700 tracking-wider text-[11px]">
+                <p class="font-bold text-slate-900 tracking-wider text-[10px]">
                   {{ form.wifi_pass }}
                 </p>
+              </div>
+
+              <div
+                class="text-[8px] text-slate-400 uppercase tracking-widest pt-2"
+              >
+                Powered by Cambodge POS
               </div>
             </div>
           </div>

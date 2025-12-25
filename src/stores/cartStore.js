@@ -1,11 +1,11 @@
 import { defineStore } from "pinia";
 import { supabase } from "../services/supabase";
-import { useUserStore } from "./userStore"; // 👈 IMPORT USER STORE
+import { useUserStore } from "./userStore";
 
 export const useCartStore = defineStore("cart", {
   // 1. STATE
   state: () => ({
-    items: [], // Current cart items
+    items: [],
     // Load offline queue from LocalStorage on startup
     offlineQueue: JSON.parse(localStorage.getItem("offlineOrders")) || [],
     customerParams: null,
@@ -24,19 +24,16 @@ export const useCartStore = defineStore("cart", {
       return state.items.reduce((count, item) => count + item.qty, 0);
     },
 
-    // Helper to check connection status
     isOffline: () => !navigator.onLine,
   },
 
   // 3. ACTIONS
   actions: {
     addToCart(drink) {
-      // Create a unique "Signature" based on ID and modifiers
       const sugar = drink.modifiers?.sugar || "Normal";
       const ice = drink.modifiers?.ice || "Normal";
       const signature = `${drink.id}-${sugar}-${ice}`;
 
-      // Check if this exact drink combination exists
       const existingItem = this.items.find(
         (item) => item.signature === signature
       );
@@ -91,13 +88,12 @@ export const useCartStore = defineStore("cart", {
       const ordersToSync = [...this.offlineQueue];
 
       for (const order of ordersToSync) {
-        // Remove the temporary ID so Supabase generates a real one
+        // Remove temporary ID so Supabase generates a real one
         const { id, ...cleanPayload } = order;
 
         const { error } = await supabase.from("orders").insert(cleanPayload);
 
         if (!error) {
-          // If successful, remove this specific order from the queue
           this.offlineQueue = this.offlineQueue.filter(
             (o) => o.id !== order.id
           );
@@ -106,7 +102,6 @@ export const useCartStore = defineStore("cart", {
         }
       }
 
-      // Update LocalStorage with whatever is left
       localStorage.setItem("offlineOrders", JSON.stringify(this.offlineQueue));
 
       if (this.offlineQueue.length === 0) {
@@ -124,9 +119,11 @@ export const useCartStore = defineStore("cart", {
       const payload = {
         id: tempOrder ? tempOrder.id : `OFF-${Date.now()}`,
         store_id: userStore.storeId,
-        organization_id: userStore.organizationId, // 🔒 Critical
+        organization_id: userStore.organizationId,
         drinks: tempOrder ? tempOrder.drinks : this.items,
         total_amount: tempOrder ? tempOrder.total : this.cartTotal,
+        // NEW: Capture Payment Method (Default to Cash if missing)
+        payment_method: tempOrder?.payment_method || "Cash",
         status: "completed",
         created_at: new Date().toISOString(),
       };
@@ -141,12 +138,11 @@ export const useCartStore = defineStore("cart", {
         );
 
         if (!tempOrder) this.clearCart();
-        return payload; // Return payload so Receipt prints!
+        return payload;
       }
 
       // 4. TRY ONLINE INSERT
       try {
-        // Remove the temporary ID so Postgres generates a real numeric ID
         const { id, ...cleanPayload } = payload;
 
         const { data, error } = await supabase
@@ -157,13 +153,10 @@ export const useCartStore = defineStore("cart", {
 
         if (error) throw error;
 
-        // Success!
         if (!tempOrder) this.clearCart();
         return data;
       } catch (err) {
         console.error("API Error, falling back to offline queue:", err.message);
-
-        // Fallback: If API fails (server error/timeout), save to queue anyway
         this.offlineQueue.push(payload);
         localStorage.setItem(
           "offlineOrders",
