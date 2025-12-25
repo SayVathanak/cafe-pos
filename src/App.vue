@@ -1,8 +1,10 @@
 <script setup>
 import { RouterView } from 'vue-router'
-import ToastContainer from './components/ToastContainer.vue' // 👈 Import
+import { Toaster } from 'vue-sonner' // 👈 Import the new library
 </script>
 
 <template>
   <RouterView />
-  <ToastContainer /> </template>
+  
+  <Toaster position="top-center" richColors closeButton /> 
+</template>

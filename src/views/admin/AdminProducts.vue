@@ -364,3 +364,4 @@ onMounted(fetchProducts);
     />
   </div>
 </template>
+  

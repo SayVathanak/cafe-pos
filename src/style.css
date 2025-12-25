@@ -1,36 +1,44 @@
 /* src/style.css */
 
-/* 1. Import Fonts manually from Google (Required for Tailwind v4) */
-/* ✅ Added 'Hanuman' to the import list below */
-@import url('https://fonts.googleapis.com/css2?family=Hanuman:wght@400;700&family=Montserrat:wght@400;600;700;900&family=Preahvihear&display=swap');
+/* -------------------------------------------------------------------------- */
+/* 1. IMPORTS & CONFIGURATION                                                 */
+/* -------------------------------------------------------------------------- */
 
-/* 2. Initialize Tailwind v4 */
+/* Google Fonts: Montserrat (Eng), Hanuman (Khmer), Preahvihear (Display) */
+@import url('https://fonts.googleapis.com/css2?family=Hanuman:wght@400;700&family=Montserrat:wght@400;500;600;700;900&family=Preahvihear&display=swap');
+
+/* Initialize Tailwind v4 */
 @import "tailwindcss";
 
-/* 3. Configure Theme Variables (This replaces tailwind.config.js) */
+/* Theme Overrides */
 @theme {
-  /* Override the default sans font to include your stacks */
-  /* ✅ Added "Hanuman" here so it works automatically for Khmer text mixed with English */
-  --font-sans: "Montserrat", "Hanuman", "Preahvihear", system-ui, sans-serif;
+  /* Mixed Language Support: Montserrat for Eng, Hanuman for Khmer */
+  --font-sans: "Montserrat", "Hanuman", "Preahvihear", ui-sans-serif, system-ui, sans-serif;
 
-  /* Create a custom utility 'font-khmer' */
-  /* ✅ Added "Hanuman" here */
+  /* Specific Font Utilities */
   --font-khmer: "Hanuman", "Preahvihear", sans-serif;
-  --font-preahvihear: "Preahvihear", sans-serif;
+  --font-display: "Preahvihear", sans-serif;
 }
 
-/* 4. Global Base Styles */
+/* -------------------------------------------------------------------------- */
+/* 2. BASE STYLES                                                             */
+/* -------------------------------------------------------------------------- */
+
 :root {
-  /* Apply the font variable defined in the theme above */
   font-family: var(--font-sans);
   line-height: 1.5;
   font-weight: 400;
 
-  /* Smooth scrolling for anchor links */
+  /* Text Rendering Optimizations */
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
   scroll-behavior: smooth;
 }
 
-/* 5. Layout Resets (Critical for your full-screen POS layout) */
+/* POS Full-Screen Layout Fixes */
 html,
 body {
   margin: 0;
@@ -38,7 +46,9 @@ body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  /* Prevent scrolling on the body (The app handles internal scrolling) */
+  /* Critical for POS to prevent page bouncing */
+  background-color: #f8fafc;
+  /* Matches slate-50 */
 }
 
 #app {
@@ -47,18 +57,22 @@ body {
   display: block;
 }
 
+/* -------------------------------------------------------------------------- */
+/* 3. CUSTOM UTILITIES                                                        */
+/* -------------------------------------------------------------------------- */
+
 @layer utilities {
 
-  /* Hide scrollbar for Chrome, Safari and Opera */
-  .scrollbar-hide::-webkit-scrollbar {
-    display: none;
-  }
-
-  /* Hide scrollbar for IE, Edge and Firefox */
+  /* Hide scrollbar but keep functionality */
   .scrollbar-hide {
     -ms-overflow-style: none;
     /* IE and Edge */
     scrollbar-width: none;
     /* Firefox */
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+    /* Chrome, Safari and Opera */
   }
 }

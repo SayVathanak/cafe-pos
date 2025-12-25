@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@headlessui/vue": "^1.7.23",
     "@supabase/supabase-js": "^2.87.1",
     "chart.js": "^4.5.1",
     "lucide-vue-next": "^0.561.0",
@@ -16,7 +17,8 @@
     "pinia": "^3.0.4",
     "vue": "^3.5.24",
     "vue-chartjs": "^5.3.3",
-    "vue-router": "^4.6.4"
+    "vue-router": "^4.6.4",
+    "vue-sonner": "^2.0.9"
   },
   "devDependencies": {
     "@iconify-json/lucide": "^1.2.81",

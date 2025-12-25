@@ -1,86 +1,97 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { supabase } from '../../services/supabase'
-import { useToastStore } from '../../stores/toastStore'
 import { useUserStore } from '../../stores/userStore'
-import { 
-  Users, Search, Shield, Store, Save, Loader2, UserCog 
-} from 'lucide-vue-next'
+import { useStaff } from '../../composables/useStaff'
+import { toast } from 'vue-sonner' // Using Vue Sonner here as requested
+import { Users, Search, Shield, Store, Save, Loader2, UserCog, Plus, X, Trash2, AlertTriangle } from 'lucide-vue-next'
+import { Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot } from '@headlessui/vue'
 
-const toast = useToastStore()
-const loading = ref(true)
-const staffList = ref([])
+const userStore = useUserStore()
+const { staff, loading, fetchStaff } = useStaff()
+
 const stores = ref([])
 const searchQuery = ref('')
-const userStore = useUserStore();
+const showAddModal = ref(false)
+const creating = ref(false)
 
-// Fetch Data
-const fetchData = async () => {
-  loading.value = true
-  
-  // 1. Get all profiles (emails)
-  const { data: profiles, error: profileError } = await supabase
-    .from('profiles')
-    .select('id, email, full_name')
-    .eq('organization_id', userStore.organizationId)
-    
-  // 2. Get all roles assignments
-  const { data: roles, error: roleError } = await supabase
-    .from('user_roles')
-    .select('*')
+// Delete Modal State
+const showDeleteModal = ref(false)
+const staffToDelete = ref(null)
+const isDeleting = ref(false)
 
-  // 3. Get all available stores
-  const { data: storeList } = await supabase
-    .from('stores')
-    .select('*')
-    .eq('organization_id', userStore.organizationId)
-  stores.value = storeList || []
+const newStaff = ref({ email: '', password: '', fullName: '', role: 'staff', store_id: '' })
 
-  if (profileError || roleError) {
-    toast.addToast("Failed to load staff data", "error")
-    loading.value = false
-    return
-  }
+const filteredStaff = computed(() => {
+  if (!searchQuery.value) return staff.value
+  const q = searchQuery.value.toLowerCase()
+  return staff.value.filter(s => 
+    (s.email?.toLowerCase() || '').includes(q) || 
+    (s.full_name?.toLowerCase() || '').includes(q)
+  )
+})
 
-  // 4. Merge Data (Profile + Role + Store)
-  staffList.value = profiles.map(profile => {
-    const roleData = roles.find(r => r.user_id === profile.id)
-    return {
-      ...profile,
-      role: roleData?.role || 'staff', // Default to staff if missing
-      store_id: roleData?.store_id || stores.value[0]?.id, // Default to first store
-      role_entry_id: roleData?.id // Need this to update the specific row
-    }
-  })
-
-  loading.value = false
+const loadStores = async () => {
+  const { data } = await supabase.from('stores').select('id, name').eq('organization_id', userStore.organizationId)
+  stores.value = data || []
+  if (stores.value.length > 0) newStaff.value.store_id = stores.value[0].id
 }
 
-// Update Staff Member
 const updateStaff = async (user) => {
-  if (!userStore.isAdminOrSuper) return; // Guard
+  user.isSaving = true
+  const { error } = await supabase.from('user_roles').upsert({
+    user_id: user.id, role: user.role, store_id: user.store_id, organization_id: userStore.organizationId
+  }, { onConflict: 'user_id' })
+
+  if (!error) await supabase.from('profiles').update({ role: user.role }).eq('id', user.id)
   
-  user.isSaving = true;
-  const { error } = await supabase
-    .from('user_roles')
-    .upsert({ 
-      user_id: user.id,
-      role: user.role, 
-      store_id: user.store_id,
-      organization_id: userStore.organizationId // 🔒 Bind to Client
-    }, { onConflict: 'user_id' });
-
   user.isSaving = false
+  if (error) toast.error(error.message)
+  else toast.success("Staff updated successfully")
+}
 
-  if (error) {
-    toast.addToast(error.message, "error")
-  } else {
-    toast.addToast("Staff permissions updated", "success")
-    fetchData() // Refresh to be safe
+const createStaffAccount = async () => {
+  if (!newStaff.value.email || !newStaff.value.password || !newStaff.value.fullName) return toast.error("Please fill in all fields")
+  creating.value = true
+  const { error } = await supabase.rpc('create_staff_user', {
+    new_email: newStaff.value.email, new_password: newStaff.value.password, new_name: newStaff.value.fullName,
+    new_role: newStaff.value.role, new_store_id: newStaff.value.store_id, org_id: userStore.organizationId
+  })
+  creating.value = false
+  if (error) toast.error(error.message)
+  else {
+    toast.success("Staff account created")
+    showAddModal.value = false
+    newStaff.value = { ...newStaff.value, email: '', password: '', fullName: '' }
+    fetchStaff(userStore.organizationId)
   }
 }
 
-onMounted(fetchData)
+// --- DELETE LOGIC (The Fix) ---
+const confirmDelete = (user) => {
+  if (user.id === userStore.user.id) return toast.error("You cannot delete your own account")
+  staffToDelete.value = user
+  showDeleteModal.value = true // Opens custom modal
+}
+
+const handleConfirmDelete = async () => {
+  if (!staffToDelete.value) return
+  isDeleting.value = true
+  const { error } = await supabase.rpc('delete_staff_user', { target_user_id: staffToDelete.value.id })
+  isDeleting.value = false
+  showDeleteModal.value = false
+  if (error) {
+    toast.error(error.message)
+  } else {
+    toast.success("Staff member deleted")
+    fetchStaff(userStore.organizationId)
+  }
+}
+// -----------------------------
+
+onMounted(() => {
+  if (userStore.organizationId) { loadStores(); fetchStaff(userStore.organizationId) }
+})
 </script>
 
 <template>
@@ -88,95 +99,168 @@ onMounted(fetchData)
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <div>
         <h2 class="text-2xl font-semibold tracking-tight text-slate-900">Staff Management</h2>
-        <p class="text-xs text-slate-500 mt-1">Assign roles and store locations to your team.</p>
+        <p class="text-xs text-slate-500 mt-1">Assign roles and store locations.</p>
       </div>
       
-      <div class="relative w-full sm:w-64">
-        <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-        <input 
-          v-model="searchQuery" 
-          type="text" 
-          placeholder="Search by email..." 
-          class="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-slate-900 transition-colors"
-        />
+      <div class="flex gap-3">
+        <div class="relative">
+          <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input v-model="searchQuery" type="text" placeholder="Search staff..." class="pl-9 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none w-48 focus:ring-2 focus:ring-slate-900/10" />
+        </div>
+        <button @click="showAddModal = true" class="bg-slate-900 text-white px-4 py-2.5 rounded-xl text-xs font-bold uppercase flex items-center gap-2 hover:bg-slate-800 shadow-lg shadow-slate-900/20 transition-all active:scale-95">
+          <Plus class="w-4 h-4" /> <span>Add Staff</span>
+        </button>
       </div>
     </div>
 
-    <div v-if="loading" class="py-12 flex justify-center">
-      <Loader2 class="w-8 h-8 animate-spin text-slate-300" />
-    </div>
+    <div v-if="loading" class="py-20 flex justify-center"><Loader2 class="w-8 h-8 animate-spin text-slate-300" /></div>
 
     <div v-else class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-      <table class="w-full text-left">
-        <thead class="bg-slate-50 border-b border-slate-200">
-          <tr>
-            <th class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-500">User</th>
-            <th class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-500">Role</th>
-            <th class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-500">Assigned Store</th>
-            <th class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-500 text-right">Action</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-slate-100">
-          <tr v-for="user in staffList" :key="user.id" class="group hover:bg-slate-50/50 transition-colors">
-            
-            <td class="px-6 py-4">
-              <div class="flex items-center gap-3">
-                <div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
-                  <UserCog class="w-4 h-4" />
+      <div class="overflow-x-auto">
+        <table class="w-full text-left whitespace-nowrap">
+          <thead class="bg-slate-50 border-b border-slate-200">
+            <tr>
+              <th class="px-6 py-4 text-[10px] font-bold uppercase text-slate-500 tracking-wider">User</th>
+              <th class="px-6 py-4 text-[10px] font-bold uppercase text-slate-500 tracking-wider">Role</th>
+              <th class="px-6 py-4 text-[10px] font-bold uppercase text-slate-500 tracking-wider">Assigned Store</th>
+              <th class="px-6 py-4 text-[10px] font-bold uppercase text-slate-500 tracking-wider text-right">Action</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            <tr v-for="user in filteredStaff" :key="user.id" class="group hover:bg-slate-50/50 transition-colors">
+              <td class="px-6 py-4">
+                <div class="flex items-center gap-3">
+                  <div class="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 border border-slate-200">
+                    <UserCog class="w-4.5 h-4.5" />
+                  </div>
+                  <div>
+                    <p class="text-sm font-semibold text-slate-900">{{ user.full_name || 'No Name' }}</p>
+                    <p class="text-[11px] text-slate-400">{{ user.email }}</p>
+                  </div>
                 </div>
-                <div>
-                  <p class="text-sm font-medium text-slate-900">{{ user.email }}</p>
-                  <p class="text-[10px] text-slate-400">ID: {{ user.id.slice(0,8) }}...</p>
+              </td>
+              <td class="px-6 py-4">
+                <div class="relative">
+                  <Shield class="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 z-10" />
+                  <select v-model="user.role" class="pl-9 pr-8 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium w-36 focus:ring-2 focus:ring-indigo-100 appearance-none cursor-pointer hover:border-slate-300 transition-colors">
+                    <option value="staff">Staff</option>
+                    <option value="admin">Admin</option>
+                  </select>
                 </div>
-              </div>
-            </td>
-
-            <td class="px-6 py-4">
-              <div class="relative">
-                <Shield class="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
-                <select 
-                  v-model="user.role"
-                  class="pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none appearance-none cursor-pointer hover:border-slate-300 transition-all w-32"
-                >
-                  <option value="staff">Staff</option>
-                  <option value="admin">Admin</option>
-                </select>
-              </div>
-            </td>
-
-            <td class="px-6 py-4">
-              <div class="relative">
-                <Store class="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
-                <select 
-                  v-model="user.store_id"
-                  class="pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none appearance-none cursor-pointer hover:border-slate-300 transition-all w-48"
-                >
-                  <option v-for="store in stores" :key="store.id" :value="store.id">
-                    {{ store.name }}
-                  </option>
-                </select>
-              </div>
-            </td>
-
-            <td class="px-6 py-4 text-right">
-              <button 
-                @click="updateStaff(user)"
-                :disabled="user.isSaving"
-                class="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-medium hover:bg-slate-800 disabled:opacity-50 transition-all shadow-sm"
-              >
-                <Loader2 v-if="user.isSaving" class="w-3 h-3 animate-spin" />
-                <Save v-else class="w-3 h-3" />
-                {{ user.isSaving ? 'Saving' : 'Update' }}
-              </button>
-            </td>
-
-          </tr>
-        </tbody>
-      </table>
-      
-      <div v-if="staffList.length === 0" class="p-8 text-center text-slate-400 text-sm">
-        No staff members found.
+              </td>
+              <td class="px-6 py-4">
+                <div class="relative">
+                  <Store class="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 z-10" />
+                  <select v-model="user.store_id" class="pl-9 pr-8 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium w-48 focus:ring-2 focus:ring-indigo-100 appearance-none cursor-pointer hover:border-slate-300 transition-colors">
+                    <option v-for="store in stores" :key="store.id" :value="store.id">{{ store.name }}</option>
+                  </select>
+                </div>
+              </td>
+              <td class="px-6 py-4 text-right">
+                <div class="flex items-center justify-end gap-2">
+                  <button @click="updateStaff(user)" :disabled="user.isSaving" class="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-lg text-xs font-medium hover:bg-slate-50 hover:border-slate-300 disabled:opacity-50 transition-all shadow-sm">
+                    <Loader2 v-if="user.isSaving" class="w-3 h-3 animate-spin" />
+                    <Save v-else class="w-3 h-3" /> 
+                    {{ user.isSaving ? 'Saving' : 'Save' }}
+                  </button>
+                  <button @click="confirmDelete(user)" class="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete User">
+                    <Trash2 class="w-4 h-4" />
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
+
+    <TransitionRoot appear :show="showAddModal" as="template">
+      <Dialog as="div" @close="showAddModal = false" class="relative z-50">
+        <TransitionChild enter="ease-out duration-300" enter-from="opacity-0" enter-to="opacity-100" leave="ease-in duration-200" leave-from="opacity-100" leave-to="opacity-0">
+          <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" />
+        </TransitionChild>
+        <div class="fixed inset-0 overflow-y-auto">
+          <div class="flex min-h-full items-center justify-center p-4">
+            <TransitionChild enter="ease-out duration-300" enter-from="opacity-0 scale-95" enter-to="opacity-100 scale-100" leave="ease-in duration-200" leave-from="opacity-100 scale-100" leave-to="opacity-0 scale-95">
+              <DialogPanel class="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 shadow-2xl transition-all">
+                <div class="flex justify-between items-center mb-6">
+                  <DialogTitle class="text-lg font-bold text-slate-900">Add Team Member</DialogTitle>
+                  <button @click="showAddModal = false" class="text-slate-400 hover:text-slate-900 transition-colors"><X class="w-5 h-5" /></button>
+                </div>
+                <div class="space-y-4">
+                  <div>
+                    <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1.5">Full Name</label>
+                    <input v-model="newStaff.fullName" type="text" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300 outline-none transition-all" />
+                  </div>
+                  <div>
+                    <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1.5">Email</label>
+                    <input v-model="newStaff.email" type="email" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300 outline-none transition-all" />
+                  </div>
+                  <div>
+                    <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1.5">Password</label>
+                    <input v-model="newStaff.password" type="password" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300 outline-none transition-all" />
+                  </div>
+                  <div class="grid grid-cols-2 gap-4">
+                    <div>
+                       <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1.5">Role</label>
+                       <div class="relative">
+                         <select v-model="newStaff.role" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm appearance-none focus:bg-white focus:ring-2 focus:ring-slate-900/10 outline-none">
+                           <option value="staff">Staff</option>
+                           <option value="admin">Admin</option>
+                         </select>
+                         <Shield class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                       </div>
+                    </div>
+                    <div>
+                       <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1.5">Store</label>
+                       <div class="relative">
+                         <select v-model="newStaff.store_id" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm appearance-none focus:bg-white focus:ring-2 focus:ring-slate-900/10 outline-none">
+                           <option v-for="s in stores" :key="s.id" :value="s.id">{{ s.name }}</option>
+                         </select>
+                         <Store class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                       </div>
+                    </div>
+                  </div>
+                  <button @click="createStaffAccount" :disabled="creating" class="w-full bg-slate-900 text-white py-3.5 rounded-xl text-sm font-bold uppercase hover:bg-slate-800 disabled:opacity-70 flex justify-center items-center gap-2 transition-all mt-2">
+                    <Loader2 v-if="creating" class="w-4 h-4 animate-spin" /> <span>Create Account</span>
+                  </button>
+                </div>
+              </DialogPanel>
+            </TransitionChild>
+          </div>
+        </div>
+      </Dialog>
+    </TransitionRoot>
+
+    <TransitionRoot appear :show="showDeleteModal" as="template">
+      <Dialog as="div" @close="showDeleteModal = false" class="relative z-50">
+        <TransitionChild enter="duration-300 ease-out" enter-from="opacity-0" enter-to="opacity-100" leave="duration-200 ease-in" leave-from="opacity-100" leave-to="opacity-0">
+          <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" />
+        </TransitionChild>
+        <div class="fixed inset-0 overflow-y-auto">
+          <div class="flex min-h-full items-center justify-center p-4">
+            <TransitionChild enter="duration-300 ease-out" enter-from="opacity-0 scale-95" enter-to="opacity-100 scale-100" leave="duration-200 ease-in" leave-from="opacity-100 scale-100" leave-to="opacity-0 scale-95">
+              <DialogPanel class="w-full max-w-sm transform overflow-hidden rounded-2xl bg-white p-6 shadow-2xl transition-all text-center">
+                <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <AlertTriangle class="w-6 h-6 text-red-600" />
+                </div>
+                <DialogTitle class="text-lg font-bold text-slate-900 mb-2">Delete Team Member?</DialogTitle>
+                <p class="text-sm text-slate-500 mb-6">
+                  Are you sure you want to remove <span class="font-bold text-slate-900">{{ staffToDelete?.full_name }}</span>? 
+                  <br>This action cannot be undone.
+                </p>
+                <div class="grid grid-cols-2 gap-3">
+                  <button @click="showDeleteModal = false" class="px-4 py-2.5 bg-slate-100 text-slate-700 rounded-xl text-sm font-bold hover:bg-slate-200 transition-colors">Cancel</button>
+                  <button @click="handleConfirmDelete" :disabled="isDeleting" class="px-4 py-2.5 bg-red-600 text-white rounded-xl text-sm font-bold hover:bg-red-700 flex items-center justify-center gap-2 transition-colors">
+                    <Loader2 v-if="isDeleting" class="w-4 h-4 animate-spin" />
+                    <span>{{ isDeleting ? 'Deleting...' : 'Yes, Delete' }}</span>
+                  </button>
+                </div>
+              </DialogPanel>
+            </TransitionChild>
+          </div>
+        </div>
+      </Dialog>
+    </TransitionRoot>
   </div>
 </template>
