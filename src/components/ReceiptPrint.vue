@@ -38,27 +38,22 @@ onMounted(async () => {
   }
 });
 
-const formatCurrency = (val) => new Intl.NumberFormat("en-US", { style: 'currency', currency: 'USD' }).format(val || 0);
+// Formatters
+const formatUSD = (val) => new Intl.NumberFormat("en-US", { style: 'currency', currency: 'USD' }).format(val || 0);
 const formatRiel = (val) => new Intl.NumberFormat("km-KH").format(val || 0);
 
-// NEW: Helper to convert item prices from Riel to USD before displaying
-const convertToUSD = (rielValue) => {
-  const rate = settings.value.exchange_rate || 4100;
-  return (rielValue || 0) / rate;
-};
-
-// Calculations - prices are in Riel from DB
+// Calculations - prices are in Riel (KHR) from DB
 const subtotalRiel = computed(() => props.order?.total || props.order?.total_amount || 0);
 const taxAmount = computed(() => (subtotalRiel.value * settings.value.tax_rate) / 100);
 const serviceAmount = computed(() => (subtotalRiel.value * settings.value.service_charge) / 100);
+
 const totalRiel = computed(() => {
   const total = subtotalRiel.value + taxAmount.value + serviceAmount.value;
-  return Math.round(total / 100) * 100; 
+  return Math.round(total / 100) * 100; // Round to nearest 100 Riel
 });
 
-// Convert Totals to USD
-const subtotal = computed(() => subtotalRiel.value / settings.value.exchange_rate);
-const grandTotal = computed(() => totalRiel.value / settings.value.exchange_rate);
+// Calculate USD Total for the final display only
+const grandTotalUSD = computed(() => totalRiel.value / settings.value.exchange_rate);
 
 const formattedDate = computed(() => {
   if (!props.order?.created_at) return new Date().toLocaleString("en-GB");
@@ -99,8 +94,7 @@ defineExpose({ print });
       <div class="info-group">
         <div class="info-row"><span>Order #:</span><span class="font-bold">{{ order.id ? order.id.slice(0, 8).toUpperCase() : "---" }}</span></div>
         <div class="info-row"><span>Date:</span><span>{{ formattedDate }}</span></div>
-        <div class="info-row"><span>Cashier:</span><span>{{ order.profiles?.full_name || userStore.profile?.full_name || 'Staff' }}</span></div>
-      </div>
+        </div>
 
       <div class="separator"></div>
 
@@ -113,8 +107,8 @@ defineExpose({ print });
             </template>
           </div>
           <div class="item-math">
-            <span>{{ item.qty }} x {{ formatCurrency(convertToUSD(item.price)) }}</span>
-            <span class="font-bold">{{ formatCurrency(convertToUSD(item.price * item.qty)) }}</span>
+            <span>{{ item.qty }} x {{ formatRiel(item.price) }}</span>
+            <span class="font-bold">{{ formatRiel(item.price * item.qty) }}</span>
           </div>
         </div>
       </div>
@@ -122,21 +116,21 @@ defineExpose({ print });
       <div class="separator"></div>
 
       <div class="totals-section">
-        <div class="sub-row"><span>Subtotal:</span><span>{{ formatCurrency(subtotal) }}</span></div>
+        <div class="sub-row"><span>Subtotal:</span><span>{{ formatRiel(subtotalRiel) }}</span></div>
         
         <div v-if="settings.tax_rate > 0" class="sub-row text-xs text-slate-500">
-          <span>VAT ({{ settings.tax_rate }}%):</span><span>{{ formatCurrency(taxAmount / settings.exchange_rate) }}</span>
+          <span>VAT ({{ settings.tax_rate }}%):</span><span>{{ formatRiel(taxAmount) }}</span>
         </div>
         
         <div v-if="settings.service_charge > 0" class="sub-row text-xs text-slate-500">
-          <span>Service ({{ settings.service_charge }}%):</span><span>{{ formatCurrency(serviceAmount / settings.exchange_rate) }}</span>
+          <span>Service ({{ settings.service_charge }}%):</span><span>{{ formatRiel(serviceAmount) }}</span>
         </div>
 
         <div class="separator-light"></div>
 
         <div class="total-row main-total">
-          <span class="total-label">TOTAL</span>
-          <span class="total-money">{{ formatCurrency(grandTotal) }}</span>
+          <span class="total-label">TOTAL (USD)</span>
+          <span class="total-money">{{ formatUSD(grandTotalUSD) }}</span>
         </div>
         
         <div class="total-row riel-total">
@@ -162,7 +156,7 @@ defineExpose({ print });
 </template>
 
 <style>
-/* ... your existing styles (no changes needed) ... */
+/* Same CSS as before */
 #receipt-container { display: none; }
 
 @media print {
