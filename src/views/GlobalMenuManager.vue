@@ -180,7 +180,7 @@ onMounted(fetchDrinks)
                   <div class="flex items-center gap-2 text-xs text-slate-500">
                     <span class="capitalize">{{ drink.category }}</span>
                     <span class="w-1 h-1 bg-slate-300 rounded-full"></span>
-                    <span class="font-mono text-slate-700 font-medium">${{ drink.price }}</span>
+                    <span class="text-slate-700 font-medium">{{ drink.price }} ៛</span>
                   </div>
                 </div>
               </div>

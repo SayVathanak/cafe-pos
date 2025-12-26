@@ -1,16 +1,20 @@
 <script setup>
 import { useCartStore } from "../stores/cartStore";
 import ReceiptPrint from "./ReceiptPrint.vue";
-import { ref, nextTick, computed } from "vue";
-import { Trash2, Plus, Minus, Printer, Loader2, X, Banknote, QrCode, CreditCard } from "lucide-vue-next";
+import { ref, nextTick, computed, onMounted } from "vue";
+import { usePlanLimits } from "../composables/usePlanLimits"; // <--- IMPORT
+import { Trash2, Plus, Minus, Printer, Loader2, X, Banknote, QrCode, CreditCard, Lock } from "lucide-vue-next";
 
 const cartStore = useCartStore();
 const lastOrder = ref(null);
 const isProcessing = ref(false);
 const emit = defineEmits(["close-cart"]);
 
+// --- LIMITS LOGIC ---
+const { checkLimit, fetchUsage, usage, limits } = usePlanLimits(); // <--- USE
+
 // Configuration
-const EXCHANGE_RATE = 4100; // 4100 KHR = 1 USD
+const EXCHANGE_RATE = 4100; 
 
 // Payment Method State
 const paymentMethod = ref('Cash');
@@ -29,10 +33,18 @@ const usdTotal = computed(() => {
 
 const handleCheckout = async () => {
   if (cartStore.items.length === 0) return;
+
+  // --- 1. CHECK ORDER LIMIT ---
+  // We re-fetch usage here to be safe, or rely on the cached value
+  // Ideally, fetchUsage() is called when the app loads or sidebar opens
+  if (!checkLimit('create_order')) {
+     alert(`🚨 LIMIT REACHED\n\nYou have hit the ${limits.value.max_orders} order limit for the ${limits.value.name} Plan.\n\nPlease upgrade to Standard for unlimited transactions.`);
+     return; // STOP TRANSACTION
+  }
   
   isProcessing.value = true;
 
-  // 1. Prepare data for Receipt
+  // 2. Prepare data for Receipt
   const tempOrder = {
     id: `ORD-${Math.floor(Math.random() * 10000)}`,
     created_at: new Date().toISOString(),
@@ -43,10 +55,10 @@ const handleCheckout = async () => {
   
   lastOrder.value = tempOrder;
 
-  // 2. Clear Cart
+  // 3. Clear Cart
   cartStore.clearCart(); 
 
-  // 3. Print
+  // 4. Print
   await nextTick();
   setTimeout(() => {
     window.print();
@@ -54,9 +66,17 @@ const handleCheckout = async () => {
     emit("close-cart");
   }, 500);
 
-  // 4. Send to Supabase
+  // 5. Send to Supabase
   await cartStore.checkout(tempOrder); 
+  
+  // 6. Refresh limits so the counter updates immediately
+  fetchUsage();
 };
+
+// Refresh limits when sidebar is mounted/opened
+onMounted(() => {
+  fetchUsage();
+});
 </script>
 
 <template>
@@ -157,11 +177,20 @@ const handleCheckout = async () => {
       <button
         @click="handleCheckout"
         :disabled="cartStore.items.length === 0 || isProcessing"
-        class="w-full bg-black text-white py-3.5 rounded-xl font-bold text-xs uppercase tracking-widest shadow-lg shadow-black/10 hover:shadow-black/20 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+        :class="checkLimit('create_order') ? 'bg-black hover:shadow-black/20' : 'bg-slate-300 cursor-not-allowed'"
+        class="w-full text-white py-3.5 rounded-xl font-bold text-xs uppercase tracking-widest shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:transform-none"
       >
         <Loader2 v-if="isProcessing" class="w-4 h-4 animate-spin" />
+        <Lock v-else-if="!checkLimit('create_order')" class="w-4 h-4" />
         <span v-else>Charge ({{ paymentMethod }})</span>
       </button>
+      
+      <div v-if="limits.max_orders < 999999" class="text-center mt-2">
+         <p class="text-[9px] font-medium" :class="usage.orders_month >= limits.max_orders ? 'text-red-500' : 'text-slate-400'">
+            {{ usage.orders_month }} / {{ limits.max_orders }} orders used this month
+         </p>
+      </div>
+
     </div>
   </div>
 </template>
