@@ -3,25 +3,13 @@ import { ref, computed, onMounted } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { supabase } from "../../services/supabase";
 import { useUserStore } from "../../stores/userStore";
-import { 
-  LayoutDashboard, 
-  Coffee, 
-  Settings, 
-  LogOut, 
-  ArrowLeft, 
-  ShoppingBag, 
-  Store, 
-  Users, 
-  ShieldCheck, 
-  Menu as MenuIcon, 
-} from "lucide-vue-next";
+import { LayoutDashboard, Coffee, Settings, LogOut, ArrowLeft, ShoppingBag, Store, Users, ShieldCheck, Menu as MenuIcon, X as XIcon } from "lucide-vue-next";
 
 const router = useRouter();
 const route = useRoute();
 const userStore = useUserStore();
 const showMobileMenu = ref(false);
 const logoUrl = ref(null);
-const isCollapsed = ref(false);
 
 onMounted(async () => {
   if (!userStore.user) await userStore.fetchUserProfile();
@@ -31,49 +19,36 @@ onMounted(async () => {
   }
 });
 
-const handleLogout = async () => { 
-  if (confirm("Sign out?")) { 
-    await userStore.logout(); 
-    router.push("/login"); 
-  } 
-};
-
+const handleLogout = async () => { if (confirm("Sign out?")) { await userStore.logout(); router.push("/login"); } };
 router.afterEach(() => { showMobileMenu.value = false; });
+const isActive = (path) => path === "/admin" && route.path === "/admin" ? true : path !== "/admin" && route.path.startsWith(path);
 
-// Helper to check active route
-const isActive = (path) => {
-  if (path === "/admin" && route.path === "/admin") return true;
-  // Special check for settings since it might have query params
-  if (path === "/admin/settings" && route.path.startsWith("/admin/settings")) return true;
-  return path !== "/admin" && route.path.startsWith(path);
-};
-
-// --- Main Navigation ---
-const mainMenuItems = [
+const menuItems = [
   { name: "Overview", path: "/admin", icon: LayoutDashboard },
   { name: "Orders", path: "/admin/orders", icon: ShoppingBag },
   { name: "Menu", path: "/admin/products", icon: Coffee },
   { name: "Staff", path: "/admin/staff", icon: Users, adminOnly: true },
   { name: "Stores", path: "/admin/stores", icon: Store, adminOnly: true },
   { name: "Platform", path: "/super-admin", icon: ShieldCheck, superOnly: true },
+  { name: "Settings", path: "/admin/settings", icon: Settings, adminOnly: true },
 ];
 
-// Computed: Filter items based on Role
-const visibleMainItems = computed(() => mainMenuItems.filter(item => {
+const visibleMenuItems = computed(() => menuItems.filter(item => {
   if (item.superOnly && userStore.role !== "super_admin") return false;
   if (item.adminOnly && !["admin", "super_admin"].includes(userStore.role)) return false;
   return true;
 }));
+
+const isCollapsed = ref(false);
 </script>
 
 <template>
   <div class="flex h-screen bg-slate-50 text-slate-900 overflow-hidden text-sm font-sans">
-    
     <aside class="hidden lg:flex flex-col border-r border-slate-200 bg-white transition-all duration-300 z-40" :class="isCollapsed ? 'w-20' : 'w-64'">
-      
-      <div class="h-20 flex items-center justify-center relative overflow-hidden shrink-0">
+      <div class="h-20 flex items-center justify-center relative overflow-hidden">
+        
         <div v-if="logoUrl && !isCollapsed" class="w-full px-6 flex justify-start">
-           <img :src="logoUrl" class="h-10 object-contain" />
+           <img :src="logoUrl" class="h-5 md:h-10 object-contain" />
         </div>
         <div v-else class="flex items-center gap-3 px-4 w-full">
            <div class="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center text-white font-bold shrink-0 font-preah">
@@ -84,37 +59,17 @@ const visibleMainItems = computed(() => mainMenuItems.filter(item => {
              <span class="text-[9px] uppercase font-bold text-slate-400">{{ userStore.role }}</span>
            </div>
         </div>
+
       </div>
 
-      <nav class="flex-1 px-3 mt-4 flex flex-col gap-1 overflow-y-auto custom-scrollbar">
-        
-        <router-link 
-          v-for="item in visibleMainItems" 
-          :key="item.path" 
-          :to="item.path" 
-          class="flex items-center gap-3 px-3 py-3 rounded-xl transition-all" 
-          :class="isActive(item.path) ? 'bg-slate-50 text-slate-900 font-semibold' : 'text-slate-500 hover:bg-slate-50'"
-        >
-          <component :is="item.icon" class="w-5 h-5 shrink-0" :class="{'text-slate-900': isActive(item.path)}" />
+      <nav class="flex-1 px-3 space-y-1 mt-4">
+        <router-link v-for="item in visibleMenuItems" :key="item.path" :to="item.path" class="flex items-center gap-3 px-3 py-3 rounded-xl transition-all" :class="isActive(item.path)?'bg-slate-50 text-slate-900 font-semibold':'text-slate-500 hover:bg-slate-50'">
+          <component :is="item.icon" class="w-5 h-5 shrink-0" :class="{'text-slate-900':isActive(item.path)}" />
           <span v-if="!isCollapsed" class="whitespace-nowrap">{{ item.name }}</span>
         </router-link>
-
-        <div class="flex-1 min-h-8"></div>
-
-        <div v-if="['admin', 'super_admin'].includes(userStore.role)">
-          <router-link 
-            to="/admin/settings" 
-            class="flex items-center gap-3 px-3 py-3 rounded-xl transition-all"
-            :class="isActive('/admin/settings') ? 'bg-slate-50 text-slate-900 font-semibold' : 'text-slate-500 hover:bg-slate-50'"
-          >
-            <Settings class="w-5 h-5 shrink-0" />
-            <span v-if="!isCollapsed">Settings</span>
-          </router-link>
-        </div>
-
       </nav>
 
-      <div class="p-3 mb-4 space-y-1 shrink-0">
+      <div class="p-3 mb-4 space-y-1">
         <button @click="router.push('/')" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium text-slate-500 hover:bg-slate-100">
           <ArrowLeft class="w-5 h-5 shrink-0"/> <span v-if="!isCollapsed">POS Terminal</span>
         </button>
@@ -125,16 +80,26 @@ const visibleMainItems = computed(() => mainMenuItems.filter(item => {
     </aside>
 
     <nav class="lg:hidden fixed bottom-0 pb-12 w-full bg-black rounded-t-xl backdrop-blur z-50 flex justify-around pt-6">
-       <button @click="router.push('/')" class="flex flex-col items-center gap-1 text-slate-400"><ArrowLeft class="w-6 h-6"/><span class="text-[9px] font-bold">POS</span></button>
-       <router-link to="/admin" class="flex flex-col items-center gap-1 text-slate-400"><LayoutDashboard class="w-6 h-6"/><span class="text-[9px] font-bold">Overview</span></router-link>
-       <router-link to="/admin/settings" class="flex flex-col items-center gap-1 text-slate-400"><Settings class="w-6 h-6"/><span class="text-[9px] font-bold">Settings</span></router-link>
-       <button @click="showMobileMenu=true" class="flex flex-col items-center gap-1 text-slate-400"><MenuIcon class="w-6 h-6"/><span class="text-[9px] font-bold">More</span></button>
+      <button @click="router.push('/')" class="flex flex-col items-center gap-1 text-slate-400"><ArrowLeft class="w-6 h-6"/><span class="text-[9px] font-bold">POS</span></button>
+      <router-link v-for="item in visibleMenuItems.slice(0,3)" :key="item.path" :to="item.path" class="flex flex-col items-center gap-1" :class="isActive(item.path)?'text-zinc-600':'text-slate-400'"><component :is="item.icon" class="w-6 h-6"/><span class="text-[9px] font-bold">{{item.name}}</span></router-link>
+      <button @click="showMobileMenu=true" class="flex flex-col items-center gap-1 text-slate-400"><MenuIcon class="w-6 h-6"/><span class="text-[9px] font-bold">More</span></button>
     </nav>
-    
+
     <div v-if="showMobileMenu" class="lg:hidden fixed inset-0 z-50 flex flex-col justify-end">
-        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="showMobileMenu=false"></div>
-        <div class="bg-white w-full rounded-t-3xl p-6 relative z-10 pb-20">
-            </div>
+      <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="showMobileMenu=false"></div>
+      <div class="bg-white w-full rounded-t-3xl p-6 relative z-10 pb-20">
+         <div class="flex justify-between items-center mb-6">
+           <div class="flex items-center gap-3">
+             <div class="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white font-bold">{{userStore.storeName?.charAt(0)}}</div>
+             <div><h3 class="font-bold">{{userStore.storeName}}</h3><p class="text-xs text-slate-500 uppercase">{{userStore.role}}</p></div>
+           </div>
+           <button @click="showMobileMenu=false" class="p-2 bg-slate-100 rounded-full"><XIcon class="w-5 h-5"/></button>
+         </div>
+         <div class="grid grid-cols-4 gap-4 mb-6">
+           <router-link v-for="item in visibleMenuItems" :key="item.path" :to="item.path" @click="showMobileMenu=false" class="flex flex-col items-center gap-2"><div class="w-14 h-14 rounded-2xl flex items-center justify-center" :class="isActive(item.path)?'bg-black text-white':'bg-slate-50 text-slate-600'"><component :is="item.icon" class="w-6 h-6"/></div><span class="text-[10px] font-bold">{{item.name}}</span></router-link>
+         </div>
+         <button @click="handleLogout" class="w-full p-3.5 rounded-xl bg-red-50 text-red-600 font-bold flex justify-center gap-2"><LogOut class="w-5 h-5"/> Sign Out</button>
+      </div>
     </div>
 
     <main class="flex-1 overflow-y-auto p-4 lg:p-8 pb-32 lg:pb-8">
@@ -142,10 +107,3 @@ const visibleMainItems = computed(() => mainMenuItems.filter(item => {
     </main>
   </div>
 </template>
-
-<style scoped>
-.custom-scrollbar::-webkit-scrollbar { width: 4px; }
-.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-.custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-.custom-scrollbar:hover::-webkit-scrollbar-thumb { background: #94a3b8; }
-</style>
