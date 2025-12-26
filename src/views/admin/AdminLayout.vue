@@ -3,17 +3,29 @@ import { ref, computed, onMounted } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { supabase } from "../../services/supabase";
 import { useUserStore } from "../../stores/userStore";
-import { LayoutDashboard, Coffee, Settings, LogOut, ArrowLeft, ShoppingBag, Store, Users, ShieldCheck, Menu as MenuIcon, X as XIcon } from "lucide-vue-next";
+// 1. Import the composable we created
+import { useSubscription } from "../../composables/useSubscription"; 
+import { 
+  LayoutDashboard, Coffee, Settings, LogOut, ArrowLeft, ShoppingBag, 
+  Store, Users, ShieldCheck, Menu as MenuIcon, X as XIcon, Lock 
+} from "lucide-vue-next";
 
 const router = useRouter();
 const route = useRoute();
 const userStore = useUserStore();
+// 2. Init subscription logic
+const { checkSubscription, isExpired, loading: subLoading } = useSubscription();
+
 const showMobileMenu = ref(false);
 const logoUrl = ref(null);
 
 onMounted(async () => {
   if (!userStore.user) await userStore.fetchUserProfile();
+  
   if (userStore.organizationId) {
+    // 3. Check subscription status on load
+    await checkSubscription();
+
     const { data } = await supabase.from('settings').select('logo_url').eq('organization_id', userStore.organizationId).single();
     if (data?.logo_url) logoUrl.value = data.logo_url;
   }
@@ -43,7 +55,26 @@ const isCollapsed = ref(false);
 </script>
 
 <template>
-  <div class="flex h-screen bg-slate-50 text-slate-900 overflow-hidden text-sm font-sans">
+  <div class="flex h-screen bg-slate-50 text-slate-900 overflow-hidden text-sm font-sans relative">
+    
+    <div v-if="isExpired && !subLoading && userStore.role !== 'super_admin'" class="absolute inset-0 z-100 bg-slate-50/80 backdrop-blur-md flex flex-col items-center justify-center text-center p-6">
+       <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
+          <Lock class="w-8 h-8 text-red-600" />
+       </div>
+       <h2 class="text-2xl font-bold text-slate-900 mb-2">Subscription Expired</h2>
+       <p class="text-slate-500 max-w-md mb-6">
+          Your access to the Admin Dashboard has been suspended because your plan has expired. Please contact support to renew your subscription.
+       </p>
+       <div class="flex gap-3">
+          <button @click="handleLogout" class="px-6 py-2.5 bg-white border border-slate-200 rounded-xl font-bold text-slate-700 hover:bg-slate-50">
+             Sign Out
+          </button>
+          <a href="https://t.me/sayvathanak" target="_blank" class="px-6 py-2.5 bg-black text-white rounded-xl font-bold hover:bg-slate-800">
+             Contact Support
+          </a>
+       </div>
+    </div>
+
     <aside class="hidden lg:flex flex-col border-r border-slate-200 bg-white transition-all duration-300 z-40" :class="isCollapsed ? 'w-20' : 'w-64'">
       <div class="h-20 flex items-center justify-center relative overflow-hidden">
         
