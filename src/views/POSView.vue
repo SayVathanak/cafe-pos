@@ -45,8 +45,21 @@ const fetchMenu = async () => {
     loading.value = false; return;
   }
   loading.value = true;
-  const { data } = await supabase.from("drinks").select("*").eq("available", true).eq("organization_id", userStore.organizationId).order("name");
-  if (data) { menu.value = data; localStorage.setItem('cachedMenu', JSON.stringify(data)); initCategories(); }
+  
+  // UPDATED QUERY: Added .neq("is_archived", true)
+  const { data } = await supabase
+    .from("drinks")
+    .select("*")
+    .eq("available", true) // Must be available (in stock)
+    .neq("is_archived", true) // <--- MUST NOT BE ARCHIVED
+    .eq("organization_id", userStore.organizationId)
+    .order("name");
+
+  if (data) { 
+    menu.value = data; 
+    localStorage.setItem('cachedMenu', JSON.stringify(data)); 
+    initCategories(); 
+  }
   loading.value = false;
 };
 

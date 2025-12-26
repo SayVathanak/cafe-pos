@@ -1,15 +1,20 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue' // <--- Added computed
+import { useRoute } from 'vue-router' // <--- IMPORT useRoute
 import { supabase } from '../../services/supabase'
 import { useUserStore } from '../../stores/userStore'
 import { useToastStore } from '../../stores/toastStore'
-import { usePlanLimits } from '../../composables/usePlanLimits' // <--- IMPORT
-import { Store, MapPin, Phone, Wifi, Plus, Edit2, Trash2, X, Loader2, AlertTriangle, Lock } from 'lucide-vue-next'
+import { usePlanLimits } from '../../composables/usePlanLimits'
+import { Store, MapPin, Phone, Wifi, Plus, Edit2, Trash2, X, Loader2, AlertTriangle, Lock, ArrowLeft } from 'lucide-vue-next' // <--- Added ArrowLeft
 import { Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot } from '@headlessui/vue'
 
+const route = useRoute() // <--- USE Route
 const toast = useToastStore()
 const userStore = useUserStore()
-const { fetchUsage, checkLimit, limits } = usePlanLimits() // <--- USE
+const { fetchUsage, checkLimit, limits } = usePlanLimits()
+
+// Check if user was sent here to fix a downgrade issue
+const isFixMode = computed(() => route.query.redirect_reason === 'downgrade_fix')
 
 const stores = ref([])
 const loading = ref(true)
@@ -23,7 +28,7 @@ const storeToDelete = ref(null)
 const fetchStores = async () => {
   if (!userStore.organizationId) return
   loading.value = true
-  await fetchUsage() // <--- Check Usage
+  await fetchUsage()
   const { data, error } = await supabase.from('stores').select('*').eq('organization_id', userStore.organizationId).order('id')
   if (error) toast.addToast("Failed to load stores", "error")
   else stores.value = data || []
@@ -84,6 +89,22 @@ onMounted(() => fetchStores())
 
 <template>
   <div class="space-y-6 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    
+    <div v-if="isFixMode" class="bg-amber-50 border-l-4 border-amber-400 p-4 rounded-r-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm">
+      <div class="flex items-center gap-3">
+        <div class="p-2 bg-amber-100 rounded-full text-amber-600 shrink-0">
+          <AlertTriangle class="w-5 h-5" />
+        </div>
+        <div>
+          <h3 class="font-bold text-amber-900 text-sm">Limit Resolution Required</h3>
+          <p class="text-xs text-amber-700">Please remove extra stores to proceed with your plan downgrade.</p>
+        </div>
+      </div>
+      <router-link to="/admin/settings" class="text-xs font-bold text-slate-600 hover:text-slate-900 flex items-center gap-1 bg-white px-3 py-2 rounded-lg border border-amber-200 hover:bg-amber-100 transition-colors">
+        <ArrowLeft class="w-3 h-3" /> Return to Settings
+      </router-link>
+    </div>
+
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <div>
         <h2 class="text-2xl font-semibold tracking-tight text-slate-900">Store Locations</h2>

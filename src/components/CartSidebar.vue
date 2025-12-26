@@ -2,8 +2,8 @@
 import { useCartStore } from "../stores/cartStore";
 import ReceiptPrint from "./ReceiptPrint.vue";
 import { ref, nextTick, computed, onMounted } from "vue";
-import { usePlanLimits } from "../composables/usePlanLimits"; // <--- IMPORT
-import { Trash2, Plus, Minus, Printer, Loader2, X, Banknote, QrCode, CreditCard, Lock } from "lucide-vue-next";
+import { usePlanLimits } from "../composables/usePlanLimits"; 
+import { Trash2, Plus, Minus, Printer, Loader2, X, Banknote, QrCode, CreditCard, Lock, AlertTriangle } from "lucide-vue-next"; 
 
 const cartStore = useCartStore();
 const lastOrder = ref(null);
@@ -11,7 +11,7 @@ const isProcessing = ref(false);
 const emit = defineEmits(["close-cart"]);
 
 // --- LIMITS LOGIC ---
-const { checkLimit, fetchUsage, usage, limits } = usePlanLimits(); // <--- USE
+const { checkLimit, fetchUsage, usage, limits } = usePlanLimits(); 
 
 // Configuration
 const EXCHANGE_RATE = 4100; 
@@ -31,15 +31,36 @@ const usdTotal = computed(() => {
   });
 });
 
+// --- STRICT COMPLIANCE CHECK ---
+// This calculates if the user is violating ANY hard limit
+const complianceError = computed(() => {
+  // 1. Check Menu Items
+  // If limit is not infinite AND current usage > limit
+  if (limits.value.max_items !== Infinity && limits.value.max_items !== null && usage.value.items > limits.value.max_items) {
+    return `Menu limit exceeded (${usage.value.items}/${limits.value.max_items}). Archive items to proceed.`;
+  }
+  
+  // 2. Check Branches
+  if (limits.value.max_branches !== Infinity && limits.value.max_branches !== null && usage.value.branches > limits.value.max_branches) {
+    return `Store limit exceeded (${usage.value.branches}/${limits.value.max_branches}). Remove stores to proceed.`;
+  }
+
+  // 3. Check Monthly Orders (Soft Limit or Hard Limit depending on your preference)
+  // Usually this is a hard limit too
+  if (!checkLimit('create_order')) {
+    return `Monthly order limit reached (${usage.value.orders_month}/${limits.value.max_orders}). Upgrade plan.`;
+  }
+
+  return null; // No errors = Good to sell
+});
+
 const handleCheckout = async () => {
   if (cartStore.items.length === 0) return;
 
-  // --- 1. CHECK ORDER LIMIT ---
-  // We re-fetch usage here to be safe, or rely on the cached value
-  // Ideally, fetchUsage() is called when the app loads or sidebar opens
-  if (!checkLimit('create_order')) {
-     alert(`🚨 LIMIT REACHED\n\nYou have hit the ${limits.value.max_orders} order limit for the ${limits.value.name} Plan.\n\nPlease upgrade to Standard for unlimited transactions.`);
-     return; // STOP TRANSACTION
+  // BLOCK TRANSACTION IF COMPLIANCE ERROR EXISTS
+  if (complianceError.value) {
+     alert(`🚨 CANNOT PROCESS ORDER\n\n${complianceError.value}`);
+     return; 
   }
   
   isProcessing.value = true;
@@ -176,16 +197,26 @@ onMounted(() => {
 
       <button
         @click="handleCheckout"
-        :disabled="cartStore.items.length === 0 || isProcessing"
-        :class="checkLimit('create_order') ? 'bg-black hover:shadow-black/20' : 'bg-slate-300 cursor-not-allowed'"
+        :disabled="cartStore.items.length === 0 || isProcessing || !!complianceError"
+        :class="(!complianceError && checkLimit('create_order')) ? 'bg-black hover:shadow-black/20' : 'bg-red-500 cursor-not-allowed'"
         class="w-full text-white py-3.5 rounded-xl font-bold text-xs uppercase tracking-widest shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:transform-none"
       >
         <Loader2 v-if="isProcessing" class="w-4 h-4 animate-spin" />
+        
+        <AlertTriangle v-else-if="complianceError" class="w-4 h-4" />
+        
         <Lock v-else-if="!checkLimit('create_order')" class="w-4 h-4" />
         <span v-else>Charge ({{ paymentMethod }})</span>
       </button>
+
+      <div v-if="complianceError" class="mt-3 bg-red-50 border border-red-100 rounded-lg p-2 flex items-start gap-2">
+         <AlertTriangle class="w-3.5 h-3.5 text-red-600 shrink-0 mt-0.5" />
+         <p class="text-[10px] font-medium text-red-600 leading-tight text-left">
+           {{ complianceError }}
+         </p>
+      </div>
       
-      <div v-if="limits.max_orders < 999999" class="text-center mt-2">
+      <div v-else-if="limits.max_orders < 999999" class="text-center mt-2">
          <p class="text-[9px] font-medium" :class="usage.orders_month >= limits.max_orders ? 'text-red-500' : 'text-slate-400'">
             {{ usage.orders_month }} / {{ limits.max_orders }} orders used this month
          </p>

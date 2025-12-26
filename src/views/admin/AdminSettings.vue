@@ -103,16 +103,17 @@ const getPlanValidationErrors = (targetPlanId) => {
 
   const errors = [];
 
-  // Check Menu Items
+  // Check Menu Items (Clarified "Archive" vs "Delete")
   if (targetPlan.max_items !== null && usage.value.items > targetPlan.max_items) {
     const diff = usage.value.items - targetPlan.max_items;
     errors.push({
-      type: 'items', // Added type for smart routing
+      type: 'items', 
       icon: List,
       title: 'Menu Limit Exceeded',
-      current: `${usage.value.items} Items`,
+      current: `${usage.value.items} Active Items`,
       limit: `Max ${targetPlan.max_items}`,
-      action: `Archive or delete ${diff} items to proceed.`
+      // Helpful action text addressing "Archived vs Deleted" confusion
+      action: `You must archive or delete ${diff} items to fit the new plan.`
     });
   }
 
@@ -120,7 +121,7 @@ const getPlanValidationErrors = (targetPlanId) => {
   if (targetPlan.max_branches !== null && usage.value.branches > targetPlan.max_branches) {
     const diff = usage.value.branches - targetPlan.max_branches;
     errors.push({
-      type: 'branches', // Added type for smart routing
+      type: 'branches',
       icon: Store,
       title: 'Too Many Branches',
       current: `${usage.value.branches} Stores`,
@@ -128,6 +129,8 @@ const getPlanValidationErrors = (targetPlanId) => {
       action: `Remove ${diff} extra store locations.`
     });
   }
+  
+  // NOTE: Staff limit check removed as requested.
 
   return { valid: errors.length === 0, errors, planName: targetPlan.name };
 };
@@ -135,33 +138,43 @@ const getPlanValidationErrors = (targetPlanId) => {
 // --- HANDLERS (SMART BUTTON LOGIC) ---
 
 const handleDowngradeClick = (plan) => {
-  // Ensure we have the ID to check validation
   const check = getPlanValidationErrors(plan.id);
 
-  // SCENARIO 1: BLOCKER (Smart Routing)
+  // SCENARIO 1: BLOCKER (Smart Routing + Context)
   if (!check.valid) {
-    // 1. Identify the primary issue
     const firstIssue = check.errors[0];
     
-    // 2. Determine Button Label & Route based on issue type
+    // Default Fallback
     let smartAction = { label: 'Go to Dashboard', route: 'admin-dashboard' };
 
+    // Smart Routing Logic
+    // We add a 'query' param so the destination page knows WHY the user is there
     if (firstIssue.type === 'branches') {
-      smartAction = { label: 'Manage Stores', route: 'AdminStores' }; // Routes to /admin/stores
+      smartAction = { 
+        label: 'Manage Stores', 
+        route: 'AdminStores' 
+      };
     } else if (firstIssue.type === 'items') {
-      smartAction = { label: 'Manage Products', route: 'admin-products' }; // Routes to /admin/products
+      smartAction = { 
+        label: 'Manage Products', 
+        route: 'admin-products'
+      };
     }
 
     actionModal.value = {
       isOpen: true,
       mode: 'error',
       title: `Cannot Switch to ${check.planName}`,
-      message: `Your current data exceeds the limits of the ${check.planName} plan. Please resolve the issues below to continue.`,
+      message: `To prevent data loss, you must bring your usage within the ${check.planName} limits before switching.`,
       details: check.errors,
-      primaryLabel: smartAction.label, // Dynamic Label
+      primaryLabel: smartAction.label,
       primaryAction: () => { 
         actionModal.value.isOpen = false; 
-        router.push({ name: smartAction.route }); // Dynamic Route
+        // Improvement: Pass query param 'redirect_reason' so the user doesn't feel lost
+        router.push({ 
+          name: smartAction.route, 
+          query: { redirect_reason: 'downgrade_fix' } 
+        }); 
       },
       secondaryLabel: 'Close',
       secondaryAction: () => { actionModal.value.isOpen = false; }
@@ -203,23 +216,19 @@ const executeDowngrade = async (plan) => {
 };
 
 const openPaymentModal = (planId, price) => {
-  // 1. Validation Check
   const check = getPlanValidationErrors(planId);
   
   if (!check.valid) {
-     // FIX: Create the plan object manually since planConfigs[id] doesn't have the ID property
      const planObject = { 
         id: planId, 
         ...planConfigs.value[planId] 
      };
-     handleDowngradeClick(planObject); // Show the nice error modal
+     handleDowngradeClick(planObject); 
      return;
   }
 
-  // 2. Pending Check
   if (pendingRequest.value) return toast.addToast("You already have a pending payment request.", "error");
   
-  // 3. Open Modal
   paymentPlan.value = { id: planId, price: price };
   paymentFile.value = null;
   paymentPreview.value = null;

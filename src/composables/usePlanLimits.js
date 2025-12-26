@@ -93,11 +93,12 @@ export function usePlanLimits() {
         .select("*", { count: "exact", head: true })
         .eq("organization_id", userStore.organizationId);
 
-      // 4. Count Items
+      // 4. Count Items (IGNORING ARCHIVED)
       const { count: drinkCount } = await supabase
         .from("drinks")
         .select("*", { count: "exact", head: true })
-        .eq("organization_id", userStore.organizationId);
+        .eq("organization_id", userStore.organizationId)
+        .neq("is_archived", true); // <--- CRITICAL FILTER
 
       // 5. Count Orders (This Month)
       const startOfMonth = new Date();
@@ -141,6 +142,6 @@ export function usePlanLimits() {
     currentPlan: realTimePlan,
     limits,
     loading,
-    planConfigs, // Exported so SuperAdmin can access raw configs
+    planConfigs,
   };
 }
