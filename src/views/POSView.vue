@@ -83,7 +83,7 @@ onUnmounted(() => {
       <header class="h-20 bg-white/80 backdrop-blur-lg px-6 flex items-center justify-between sticky top-0 z-30 border-b border-slate-200/50">
         <div class="flex items-center gap-6">
           <button @click="router.push('/admin')" class="text-left group">
-            <img v-if="logoUrl" :src="logoUrl" class="h-10 w-auto object-contain transition-opacity group-hover:opacity-80" />
+            <img v-if="logoUrl" :src="logoUrl" class="h-5 md:h-10 w-auto object-contain transition-opacity group-hover:opacity-80" />
             <div v-else class="flex flex-col items-start">
               <div class="text-xl font-medium tracking-tight group-hover:text-slate-600">Cambodge</div>
               <p class="text-[10px] uppercase tracking-widest text-slate-400 font-medium">POS System</p>
@@ -121,7 +121,7 @@ onUnmounted(() => {
     </main>
 
     <aside class="fixed inset-y-0 right-0 z-50 w-full sm:w-100 bg-white border-l border-slate-200 transition-all duration-500 lg:static lg:translate-x-0 shrink-0" :class="isCartOpen ? 'translate-x-0 shadow-2xl' : 'translate-x-full lg:shadow-none'"><CartSidebar @close-cart="isCartOpen = false" /></aside>
-    <button v-if="cartStore.items.length > 0 && !isCartOpen" @click="isCartOpen = true" class="lg:hidden fixed left-4 right-4 bottom-4 z-50 bg-black text-white px-6 py-4 flex items-center justify-between text-sm font-medium rounded-2xl shadow-2xl"><div class="flex items-center gap-3"><span class="bg-white text-black rounded-full w-6 h-6 flex items-center justify-center text-xs font-black">{{ cartStore.items.length }}</span><span>View Order</span></div><span class="text-lg font-khmer">{{ cartStore.cartTotal.toLocaleString() }}៛</span></button>
+    <button v-if="cartStore.items.length > 0 && !isCartOpen" @click="isCartOpen = true" class="lg:hidden fixed left-4 right-4 bottom-4 z-50 bg-black text-white px-6 py-4 flex items-center justify-between text-sm font-medium rounded-2xl shadow-2xl"><div class="flex items-center gap-3"><span class="bg-white text-black rounded-full w-6 h-6 flex items-center justify-center text-xs font-black">{{ cartStore.items.length }}</span><span>View Order</span></div><span class="text-lg">{{ cartStore.cartTotal.toLocaleString() }}៛</span></button>
     <ProductOptionsModal :isOpen="showOptions" :drink="selectedDrink" @close="showOptions = false" @add-to-cart="confirmAddToCart" />
   </div>
 </template>

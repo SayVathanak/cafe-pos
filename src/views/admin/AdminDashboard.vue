@@ -34,6 +34,9 @@ const recentOrders = ref([])
 const topProducts = ref([])
 const chartData = ref({ labels: [], datasets: [] })
 
+// Exchange Rate (You might want to fetch this from settings later)
+const EXCHANGE_RATE = 4100 
+
 // Compact Chart Config
 const barOptions = {
   responsive: true,
@@ -47,6 +50,12 @@ const barOptions = {
 
 // Helpers
 const formatCurrency = (amount) => new Intl.NumberFormat('en-US').format(amount) + ' ៛'
+// New helper for USD conversion
+const formatUSD = (amountInRiel) => {
+  const usd = amountInRiel / EXCHANGE_RATE
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(usd)
+}
+
 const formatDate = (dateStr) => new Date(dateStr).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit' })
 const getGradient = (ctx, chartArea) => {
   const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top)
@@ -56,7 +65,7 @@ const getGradient = (ctx, chartArea) => {
 }
 const viewAllOrders = () => router.push('/admin/orders')
 
-// --- DATA FETCHING (Same logic as before) ---
+// --- DATA FETCHING ---
 const fetchStores = async () => {
   if (!userStore.organizationId) return
   const { data } = await supabase.from('stores').select('id, name').eq('organization_id', userStore.organizationId)
@@ -77,7 +86,6 @@ const fetchDashboardData = async () => {
   if (timeRange.value === 'today') prevStartDate.setDate(startDate.getDate() - 1)
   else prevStartDate.setDate(startDate.getDate() - parseInt(timeRange.value))
 
-  // Queries
   let currentQuery = supabase.from('orders').select('total_amount, created_at, drinks, payment_method').gte('created_at', startDate.toISOString()).lte('created_at', now.toISOString()).eq('organization_id', userStore.organizationId)
   let prevQuery = supabase.from('orders').select('total_amount').gte('created_at', prevStartDate.toISOString()).lt('created_at', startDate.toISOString()).eq('organization_id', userStore.organizationId)
 
@@ -92,7 +100,6 @@ const fetchDashboardData = async () => {
   const { data: currentOrders } = await currentQuery
   const { data: prevOrders } = await prevQuery
 
-  // Calculations
   const currRev = currentOrders?.reduce((sum, o) => sum + o.total_amount, 0) || 0
   const prevRev = prevOrders?.reduce((sum, o) => sum + o.total_amount, 0) || 0
   const currCount = currentOrders?.length || 0
@@ -107,7 +114,6 @@ const fetchDashboardData = async () => {
     avgGrowth: 0 
   }
 
-  // Payment Stats
   let cashTotal = 0, abaTotal = 0, acledaTotal = 0;
   currentOrders?.forEach(order => {
     const method = (order.payment_method || 'Cash').toLowerCase();
@@ -117,14 +123,12 @@ const fetchDashboardData = async () => {
   });
   paymentStats.value = { cash: cashTotal, aba: abaTotal, acleda: acledaTotal };
 
-  // Recent Orders
   let recentQuery = supabase.from('orders').select('*').eq('organization_id', userStore.organizationId).order('created_at', { ascending: false }).limit(5)
   if (userStore.role !== 'admin') recentQuery = recentQuery.eq('store_id', userStore.storeId)
   else if (selectedStore.value !== 'all') recentQuery = recentQuery.eq('store_id', selectedStore.value)
   const { data: recentData } = await recentQuery
   recentOrders.value = recentData || []
 
-  // Top Products
   const productMap = {}
   currentOrders?.forEach(order => {
     const items = order.drinks || [] 
@@ -139,7 +143,6 @@ const fetchDashboardData = async () => {
   })
   topProducts.value = Object.values(productMap).sort((a, b) => b.qty - a.qty).slice(0, 5)
 
-  // Chart Data
   const chartMap = {}
   currentOrders?.forEach(order => {
     const key = new Date(order.created_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
@@ -176,7 +179,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">
+  <div class="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
     
     <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
       <div>
@@ -270,8 +273,9 @@ onMounted(() => {
               <CreditCard class="w-4 h-4 text-slate-400 group-hover:text-white" />
             </div>
           </div>
-          <p class="text-[10px] uppercase font-semibold text-slate-400 tracking-wider">Avg Value</p>
-          <h3 class="text-2xl font-semibold text-slate-900 mt-0.5">{{ formatCurrency(stats.avg) }}</h3>
+          <p class="text-[10px] uppercase font-semibold text-slate-400 tracking-wider">Avg Value (USD)</p>
+          <h3 class="text-2xl font-semibold text-slate-900 mt-0.5">{{ formatUSD(stats.avg) }}</h3>
+          <p class="text-[9px] text-slate-400 mt-1">approx {{ formatCurrency(stats.avg) }}</p>
         </div>
       </div>
     </div>
@@ -313,7 +317,7 @@ onMounted(() => {
         </div>
       </div>
     </div>
-
+    
     <div class="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
       <div class="px-4 py-3 border-b border-slate-50 flex items-center justify-between">
         <div class="flex items-center gap-2">

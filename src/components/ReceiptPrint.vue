@@ -193,7 +193,7 @@ defineExpose({ print });
   .info-group, .totals-section { display: flex; flex-direction: column; gap: 3px; }
   .info-row, .sub-row, .total-row, .item-math { display: flex; justify-content: space-between; }
   
-  .main-total { font-weight: 800; font-size: 1.2em; margin-top: 2px; }
+  .main-total { font-weight: 700 ; font-size: 1.2em; margin-top: 2px; }
   .riel-total { font-weight: 700; font-size: 1em; color: #333; }
 
   .item-row { margin-bottom: 6px; }
@@ -202,7 +202,7 @@ defineExpose({ print });
 
   .footer { text-align: center; margin-top: 10px; font-size: 0.85em; }
   .wifi-box { border: 1px solid #000; border-radius: 4px; padding: 3px; display: inline-block; margin: 5px 0; font-weight: 700; }
-  .tech-credit { font-size: 0.7em; margin-top: 5px; text-transform: uppercase; color: #666; }
+  .tech-credit { font-size: 0.7em; margin-top: 5px; text-transform: uppercase; color: #2a2a2a; }
   .cut-feed { color: white; padding-bottom: 20px; }
 }
 </style>

@@ -137,7 +137,7 @@ onMounted(() => fetchStores())
           <div class="p-2.5 bg-slate-50 rounded-xl group-hover:bg-slate-900 group-hover:text-white transition-colors duration-300">
             <Store class="w-6 h-6 text-slate-400 group-hover:text-white" />
           </div>
-          <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div class="flex gap-1  group-hover:opacity-100 transition-opacity">
             <button @click="openModal(store)" class="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"><Edit2 class="w-4 h-4" /></button>
             <button @click="confirmDelete(store)" class="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Trash2 class="w-4 h-4" /></button>
           </div>
@@ -163,12 +163,12 @@ onMounted(() => fetchStores())
 
     <TransitionRoot appear :show="showModal" as="template">
       <Dialog as="div" @close="showModal = false" class="relative z-50">
-        <TransitionChild enter="ease-out duration-300" enter-from="opacity-0" enter-to="opacity-100" leave="ease-in duration-200" leave-from="opacity-100" leave-to="opacity-0">
+        <TransitionChild enter="ease-out duration-300" enter-from="" enter-to="opacity-100" leave="ease-in duration-200" leave-from="opacity-100" leave-to="">
           <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" />
         </TransitionChild>
         <div class="fixed inset-0 overflow-y-auto">
           <div class="flex min-h-full items-center justify-center p-4">
-            <TransitionChild enter="ease-out duration-300" enter-from="opacity-0 scale-95" enter-to="opacity-100 scale-100" leave="ease-in duration-200" leave-from="opacity-100 scale-100" leave-to="opacity-0 scale-95">
+            <TransitionChild enter="ease-out duration-300" enter-from=" scale-95" enter-to="opacity-100 scale-100" leave="ease-in duration-200" leave-from="opacity-100 scale-100" leave-to=" scale-95">
               <DialogPanel class="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 shadow-2xl transition-all">
                 <div class="flex justify-between items-center mb-6">
                   <DialogTitle class="text-lg font-bold text-slate-900">{{ form.id ? 'Edit Branch' : 'New Branch' }}</DialogTitle>
@@ -206,12 +206,12 @@ onMounted(() => fetchStores())
 
     <TransitionRoot appear :show="showDeleteModal" as="template">
       <Dialog as="div" @close="showDeleteModal = false" class="relative z-50">
-        <TransitionChild enter="duration-300 ease-out" enter-from="opacity-0" enter-to="opacity-100" leave="duration-200 ease-in" leave-from="opacity-100" leave-to="opacity-0">
+        <TransitionChild enter="duration-300 ease-out" enter-from="" enter-to="opacity-100" leave="duration-200 ease-in" leave-from="opacity-100" leave-to="">
           <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" />
         </TransitionChild>
         <div class="fixed inset-0 overflow-y-auto">
           <div class="flex min-h-full items-center justify-center p-4">
-            <TransitionChild enter="duration-300 ease-out" enter-from="opacity-0 scale-95" enter-to="opacity-100 scale-100" leave="duration-200 ease-in" leave-from="opacity-100 scale-100" leave-to="opacity-0 scale-95">
+            <TransitionChild enter="duration-300 ease-out" enter-from=" scale-95" enter-to="opacity-100 scale-100" leave="duration-200 ease-in" leave-from="opacity-100 scale-100" leave-to=" scale-95">
               <DialogPanel class="w-full max-w-sm transform overflow-hidden rounded-2xl bg-white p-6 shadow-2xl transition-all text-center">
                 <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <AlertTriangle class="w-6 h-6 text-red-600" />
