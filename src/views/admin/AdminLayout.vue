@@ -3,29 +3,39 @@ import { ref, computed, onMounted } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { supabase } from "../../services/supabase";
 import { useUserStore } from "../../stores/userStore";
-// 1. Import the composable we created
-import { useSubscription } from "../../composables/useSubscription"; 
+import { useSubscription } from "../../composables/useSubscription";
 import { 
   LayoutDashboard, Coffee, Settings, LogOut, ArrowLeft, ShoppingBag, 
-  Store, Users, ShieldCheck, Menu as MenuIcon, X as XIcon, Lock 
+  Store, Users, ShieldCheck, Menu as MenuIcon, X as XIcon, Lock, Eye // <--- Added Eye
 } from "lucide-vue-next";
 
 const router = useRouter();
 const route = useRoute();
 const userStore = useUserStore();
-// 2. Init subscription logic
 const { checkSubscription, isExpired, loading: subLoading } = useSubscription();
 
 const showMobileMenu = ref(false);
 const logoUrl = ref(null);
 
+// NEW: Check Impersonation State
+const isImpersonating = computed(() => !!sessionStorage.getItem('superAdmin_restore'));
+
+const exitImpersonation = () => {
+  const original = JSON.parse(sessionStorage.getItem('superAdmin_restore'));
+  if (original) {
+    userStore.role = original.role;
+    userStore.organizationId = original.orgId;
+    userStore.storeName = original.storeName;
+    sessionStorage.removeItem('superAdmin_restore');
+    router.push('/super-admin');
+  }
+};
+
 onMounted(async () => {
   if (!userStore.user) await userStore.fetchUserProfile();
   
   if (userStore.organizationId) {
-    // 3. Check subscription status on load
     await checkSubscription();
-
     const { data } = await supabase.from('settings').select('logo_url').eq('organization_id', userStore.organizationId).single();
     if (data?.logo_url) logoUrl.value = data.logo_url;
   }
@@ -57,7 +67,17 @@ const isCollapsed = ref(false);
 <template>
   <div class="flex h-screen bg-slate-50 text-slate-900 overflow-hidden text-sm font-sans relative">
     
-    <div v-if="isExpired && !subLoading && userStore.role !== 'super_admin'" class="absolute inset-0 z-100 bg-slate-50/80 backdrop-blur-md flex flex-col items-center justify-center text-center p-6">
+    <div v-if="isImpersonating" class="absolute top-0 left-0 right-0 z-60 bg-indigo-600 text-white px-4 py-2 flex items-center justify-between shadow-md">
+       <div class="flex items-center gap-2">
+          <Eye class="w-4 h-4 animate-pulse" />
+          <span class="font-bold text-xs">Viewing as: {{ userStore.storeName }}</span>
+       </div>
+       <button @click="exitImpersonation" class="bg-white/20 hover:bg-white/30 text-white px-3 py-1 rounded text-xs font-bold transition-colors">
+          Exit View
+       </button>
+    </div>
+
+    <div v-if="isExpired && !subLoading && userStore.role !== 'super_admin' && !isImpersonating" class="absolute inset-0 z-100 bg-slate-50/80 backdrop-blur-md flex flex-col items-center justify-center text-center p-6">
        <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
           <Lock class="w-8 h-8 text-red-600" />
        </div>
@@ -76,8 +96,7 @@ const isCollapsed = ref(false);
     </div>
 
     <aside class="hidden lg:flex flex-col border-r border-slate-200 bg-white transition-all duration-300 z-40" :class="isCollapsed ? 'w-20' : 'w-64'">
-      <div class="h-20 flex items-center justify-center relative overflow-hidden">
-        
+      <div class="h-20 flex items-center justify-center relative overflow-hidden" :class="isImpersonating ? 'mt-8' : ''">
         <div v-if="logoUrl && !isCollapsed" class="w-full px-6 flex justify-start">
            <img :src="logoUrl" class="h-5 md:h-10 object-contain" />
         </div>
@@ -90,7 +109,6 @@ const isCollapsed = ref(false);
              <span class="text-[9px] uppercase font-bold text-slate-400">{{ userStore.role }}</span>
            </div>
         </div>
-
       </div>
 
       <nav class="flex-1 px-3 space-y-1 mt-4">
@@ -133,7 +151,7 @@ const isCollapsed = ref(false);
       </div>
     </div>
 
-    <main class="flex-1 overflow-y-auto p-4 lg:p-8 pb-32 lg:pb-8">
+    <main class="flex-1 overflow-y-auto p-4 lg:p-8 pb-32 lg:pb-8" :class="isImpersonating ? 'pt-12' : ''">
       <div class="max-w-6xl mx-auto"><router-view /></div>
     </main>
   </div>
