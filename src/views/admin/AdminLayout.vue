@@ -442,7 +442,7 @@ const visibleMenuItems = computed(() =>
     </aside>
 
     <nav
-      class="lg:hidden fixed bottom-0 inset-x-0 bg-white border-t border-slate-200 pb-6 pt-2 px-6 flex justify-between items-center z-50 h-24"
+      class="lg:hidden fixed bottom-0 inset-x-0 bg-white border-t border-slate-200 pb-6 pt-2 px-6 flex justify-between items-center z-50 h-20"
     >
       <router-link
         @click="router.push('/')"
