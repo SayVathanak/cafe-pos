@@ -91,7 +91,11 @@ defineExpose({ print });
       <div class="separator"></div>
 
       <div class="info-group">
-        <div class="info-row"><span>Order #:</span><span class="font-bold">{{ order.id ? order.id.slice(0, 8).toUpperCase() : "---" }}</span></div>
+        <div class="info-row font-mono">
+          <span>Order #:</span>
+          <span class="text-sm">{{ order.display_id || '---' }}</span>
+        </div>
+        
         <div class="info-row"><span>Date:</span><span>{{ formattedDate }}</span></div>
       </div>
 
@@ -153,7 +157,7 @@ defineExpose({ print });
           <span class="wifi-label">WIFI:</span> <span class="wifi-code">{{ settings.wifi_pass }}</span>
         </div>
         
-        <p class="tech-credit">Powered by Cambodge Business</p>
+        <p class="tech-credit">Powered by Cambodge POS</p>
         <div class="cut-feed">.</div>
       </div>
     </div>
