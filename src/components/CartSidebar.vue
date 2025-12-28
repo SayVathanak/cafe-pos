@@ -177,8 +177,8 @@ onMounted(() => {
           <Coffee class="w-4 h-4" />
         </div> -->
         <div>
-          <div class="font-bold text-sm text-slate-900 leading-none uppercase tracking-wider">Current Order</div>
-          <div class="text-[10px] font-mono text-slate-400 mt-1">ID: <span class="text-slate-900 font-bold">{{
+          <div class="font-bold text-md text-slate-900 leading-none uppercase tracking-wider">Current Order</div>
+          <div class="text-[10px] font-mono text-slate-400 mt-1">Order : <span class="text-slate-900 font-bold">{{
             nextOrderId }}</span></div>
         </div>
       </div>
@@ -209,7 +209,7 @@ onMounted(() => {
 
           <div class="flex-1 min-w-0 flex flex-col justify-center pt-0.5">
             <div class="flex items-baseline justify-between gap-2 pr-2">
-              <span class="font-semibold text-xs text-slate-900 truncate">{{ item.name }}</span>
+              <span class="font-semibold text-sm text-slate-900 truncate">{{ item.name }}</span>
             </div>
 
             <div class="text-[10px] font-mono text-slate-400 mt-0.5">
@@ -299,7 +299,7 @@ onMounted(() => {
           ? 'bg-slate-900 hover:bg-slate-800 text-white shadow-lg shadow-slate-200'
           : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
           "
-          class="w-full py-3.5 rounded-lg font-bold text-sm uppercase tracking-widest transition-all active:scale-[0.98] disabled:transform-none flex items-center justify-center gap-2 group">
+          class="w-full mb-5 md:mb-2 py-4 rounded-lg font-bold text-sm uppercase tracking-widest transition-all active:scale-[0.98] disabled:transform-none flex items-center justify-center gap-2 group">
           <div v-if="complianceError" class="flex items-center gap-2">
             <AlertCircle class="w-4 h-4" />
             <span>{{ complianceError }}</span>
@@ -412,6 +412,6 @@ onMounted(() => {
 }
 
 .animate-bounce-short {
-  animation: bounce-short 2.5s infinite;
+  animation: bounce-short 2s infinite;
 }
 </style>
