@@ -30,6 +30,8 @@ import {
   AlertTriangle,
   Ban,
   Info,
+  X,
+  Eye,
 } from "lucide-vue-next";
 
 const router = useRouter();
@@ -132,7 +134,7 @@ const checkPendingPayments = async () => {
     .select("*")
     .eq("organization_id", userStore.organizationId)
     .eq("status", "pending")
-    .single();
+    .maybeSingle();
   pendingRequest.value = data;
 };
 
@@ -347,7 +349,7 @@ const fetchSettings = async () => {
     .from("settings")
     .select("*")
     .eq("organization_id", userStore.organizationId)
-    .single();
+    .maybeSingle();
   if (data) {
     form.value = { ...form.value, ...data };
     showTax.value = data.tax_rate > 0;
@@ -411,32 +413,35 @@ const tabs = [
 <template>
   <div class="relative">
     <div
-      class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8"
+      class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 sm:mb-8"
     >
       <div
-        class="flex gap-6 overflow-x-auto no-scrollbar border-b border-slate-200 sm:border-none pb-1 sm:pb-0"
+        class="flex gap-2 overflow-x-auto no-scrollbar pb-1 sm:pb-0 sm:border-b-0"
       >
         <button
           v-for="tab in tabs"
           :key="tab.id"
           @click="activeTab = tab.id"
-          class="pb-2 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap"
+          class="px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all border"
           :class="
             activeTab === tab.id
-              ? 'text-slate-900 border-slate-900'
-              : 'text-slate-400 border-transparent hover:text-slate-600'
+              ? 'bg-slate-900 text-white border-slate-900 shadow-md'
+              : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
           "
         >
           {{ tab.label }}
         </button>
       </div>
+
       <div class="flex items-center gap-2 self-end sm:self-auto">
         <button
           @click="showMobilePreview = true"
-          class="md:hidden p-2 text-slate-500 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
+          class="md:hidden flex items-center gap-2 px-3 py-2 text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors text-xs font-bold"
         >
-          <Smartphone class="w-4 h-4" />
+          <Smartphone class="w-3.5 h-3.5" />
+          <span>Receipt Preview</span>
         </button>
+
         <button
           @click="saveSettings"
           :disabled="saving"
@@ -450,7 +455,7 @@ const tabs = [
       </div>
     </div>
 
-    <div class="flex flex-col lg:flex-row gap-10 items-start">
+    <div class="flex flex-col lg:flex-row gap-10 items-start pb-20 md:pb-0">
       <div class="flex-1 w-full min-w-0">
         <div v-if="loading" class="flex justify-center py-20">
           <Loader2 class="w-8 h-8 animate-spin text-slate-300" />
@@ -1119,6 +1124,181 @@ const tabs = [
     </div>
 
     <div
+      v-if="showMobilePreview"
+      class="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-900/80 backdrop-blur-sm md:hidden animate-in fade-in duration-200"
+    >
+      <div class="relative w-full max-w-[320px]">
+        <button
+          @click="showMobilePreview = false"
+          class="absolute -top-12 right-0 p-2 bg-white/10 rounded-full text-white hover:bg-white/20"
+        >
+          <X class="w-6 h-6" />
+        </button>
+
+        <div class="relative w-full drop-shadow-2xl">
+          <div
+            class="absolute -top-2 left-0 w-full h-3 z-10 rotate-180"
+            style="
+              background-image: linear-gradient(
+                  135deg,
+                  #fff 25%,
+                  transparent 25%
+                ),
+                linear-gradient(225deg, #fff 25%, transparent 25%);
+              background-size: 10px 20px;
+              background-repeat: repeat-x;
+            "
+          ></div>
+          <div
+            class="bg-white p-6 pt-6 pb-8 text-[10px] font-mono leading-tight relative min-h-90 max-h-[70vh] overflow-y-auto"
+          >
+            <div class="text-center mb-4">
+              <div
+                v-if="form.use_logo_header && form.logo_url"
+                class="mb-2 flex justify-center"
+              >
+                <img
+                  :src="form.logo_url"
+                  class="h-10 object-contain grayscale"
+                />
+              </div>
+              <div
+                v-else
+                class="font-bold text-sm uppercase tracking-tight text-slate-900 mb-2 wrap-break-word"
+              >
+                {{ form.receipt_header || "SHOP NAME" }}
+              </div>
+              <div
+                class="text-[9px] text-slate-500 leading-relaxed font-sans mt-1 wrap-break-word"
+              >
+                {{ form.receipt_address || "123 Business St, Phnom Penh"
+                }}<br />
+                {{ form.receipt_phone ? "Tel: " + form.receipt_phone : "" }}
+              </div>
+            </div>
+            <div class="border-b border-dashed border-slate-300 my-3"></div>
+            <div class="flex justify-between mb-1">
+              <span>Order #:</span><span class="font-bold text-slate-900">#001</span>
+            </div>
+            <div class="flex justify-between mb-3">
+              <span>Date:</span>
+              <span>{{
+                new Date().toLocaleDateString("en-GB", {
+                  day: "numeric",
+                  month: "numeric",
+                  year: "2-digit",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
+              }}</span>
+            </div>
+            <div class="border-b border-dashed border-slate-300 my-3"></div>
+            <div class="space-y-3 mb-4">
+              <div class="flex justify-between font-bold text-slate-900">
+                <span>1x Iced Latte (Large)</span>
+                <span>{{ (baseRiel * 0.7).toLocaleString() }} ៛</span>
+              </div>
+              <div class="text-[9px] text-slate-500 font-sans italic -mt-2 ml-2">
+                • Oat Milk, Less Sugar
+              </div>
+              <div class="flex justify-between font-bold text-slate-900">
+                <span>1x Butter Croissant</span>
+                <span>{{ (baseRiel * 0.3).toLocaleString() }} ៛</span>
+              </div>
+            </div>
+            <div class="border-t-[1.5px] border-slate-900 pt-3 space-y-1 font-sans">
+              <div
+                class="flex justify-between text-slate-500 font-bold text-[9px] uppercase tracking-wider"
+              >
+                <span>Subtotal</span><span>{{ baseRiel.toLocaleString() }} ៛</span>
+              </div>
+              <div
+                v-if="showTax"
+                class="flex justify-between text-slate-500 font-bold text-[9px] uppercase tracking-wider"
+              >
+                <span>VAT ({{ form.tax_rate }}%)</span>
+                <span>{{ (baseRiel * (form.tax_rate / 100)).toLocaleString() }} ៛</span>
+              </div>
+              <div
+                v-if="showService"
+                class="flex justify-between text-slate-500 font-bold text-[9px] uppercase tracking-wider"
+              >
+                <span>Service ({{ form.service_charge }}%)</span>
+                <span
+                  >{{
+                    (baseRiel * (form.service_charge / 100)).toLocaleString()
+                  }}
+                  ៛</span
+                >
+              </div>
+              <div class="border-b border-slate-200 my-2"></div>
+              <div class="flex justify-between items-center mt-1">
+                <span class="text-[10px] font-bold uppercase text-slate-900"
+                  >Total (KHR)</span
+                >
+                <span class="text-xl font-semibold text-slate-900 tracking-tighter"
+                  >{{ finalRiel.toLocaleString() }} ៛</span
+                >
+              </div>
+              <div
+                class="flex justify-between items-center text-slate-500 font-medium mt-1"
+              >
+                <span class="text-[9px]">Total (USD)</span>
+                <span class="text-xs font-semibold tracking-tighter"
+                  >${{ finalUsd.toFixed(2) }}</span
+                >
+              </div>
+            </div>
+            <div class="border-b border-dashed border-slate-300 my-4"></div>
+            <div class="text-center space-y-4">
+              <p
+                class="font-bold text-slate-900 uppercase text-[9px] tracking-tight leading-snug wrap-break-word"
+              >
+                {{ form.receipt_footer || "Thank you for your visit!" }}
+              </p>
+              <div
+                v-if="form.wifi_pass"
+                class="inline-block px-3 py-1 border border-slate-900 rounded-md"
+              >
+                <p
+                  class="text-[7px] font-bold text-slate-500 uppercase tracking-widest mb-0.5"
+                >
+                  WIFI PASS
+                </p>
+                <p class="font-bold text-slate-900 tracking-wider text-[10px]">
+                  {{ form.wifi_pass }}
+                </p>
+              </div>
+              <div class="text-[8px] text-slate-400 uppercase tracking-widest pt-2">
+                Powered by Cambodge POS
+              </div>
+            </div>
+          </div>
+          <div
+            class="absolute -bottom-2 left-0 w-full h-3 z-10"
+            style="
+              background-image: linear-gradient(
+                  135deg,
+                  #fff 25%,
+                  transparent 25%
+                ),
+                linear-gradient(225deg, #fff 25%, transparent 25%);
+              background-size: 10px 20px;
+              background-repeat: repeat-x;
+            "
+          ></div>
+        </div>
+      </div>
+    </div>
+
+    <button
+      @click="showMobilePreview = true"
+      class="md:hidden fixed bottom-6 right-6 w-14 h-14 bg-slate-900 text-white rounded-full shadow-xl flex items-center justify-center z-40 hover:scale-105 active:scale-95 transition-all"
+    >
+      <Eye class="w-6 h-6" />
+    </button>
+
+    <div
       v-if="actionModal.isOpen"
       class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200"
     >
@@ -1216,11 +1396,11 @@ const tabs = [
           </div>
           <div class="flex justify-between text-xs">
             <span class="text-slate-500">Account:</span
-            ><span class="font-bold font-mono">001 234 567</span>
+            ><span class="font-bold font-mono">000 735 043</span>
           </div>
           <div class="flex justify-between text-xs">
             <span class="text-slate-500">Name:</span
-            ><span class="font-bold">MY COMPANY LTD</span>
+            ><span class="font-bold">SAY SAKSOVATHANAK</span>
           </div>
         </div>
         <div class="mb-4">
@@ -1265,4 +1445,4 @@ const tabs = [
       </div>
     </div>
   </div>
-</template>
+</template> 

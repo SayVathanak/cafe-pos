@@ -486,7 +486,7 @@ const visibleMenuItems = computed(() =>
         @click="showMobileMenu = false"
       ></div>
       <div
-        class="bg-white w-full rounded-t-3xl p-6 relative z-10 pb-24 animate-in slide-in-from-bottom-10 duration-200"
+        class="bg-white w-full rounded-t-3xl p-6 relative z-10 pb-10 animate-in slide-in-from-bottom-10 duration-200"
       >
         <div class="flex justify-between items-center mb-6">
           <div class="flex items-center gap-3">
