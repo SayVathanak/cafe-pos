@@ -299,7 +299,7 @@ onMounted(() => {
           ? 'bg-slate-900 hover:bg-slate-800 text-white shadow-lg shadow-slate-200'
           : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
           "
-          class="w-full mb-5 md:mb-2 py-4 rounded-lg font-bold text-sm uppercase tracking-widest transition-all active:scale-[0.98] disabled:transform-none flex items-center justify-center gap-2 group">
+          class="w-full mb-4 md:mb-2 py-4 rounded-lg font-bold text-sm uppercase tracking-widest transition-all active:scale-[0.98] disabled:transform-none flex items-center justify-center gap-2 group">
           <div v-if="complianceError" class="flex items-center gap-2">
             <AlertCircle class="w-4 h-4" />
             <span>{{ complianceError }}</span>
