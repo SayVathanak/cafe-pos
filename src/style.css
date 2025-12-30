@@ -47,7 +47,7 @@ body {
   height: 100%;
   overflow: hidden;
   /* Critical for POS to prevent page bouncing */
-  background-color: #f8fafc;
+  background-color: #ffffff;
   /* Matches slate-50 */
 }
 
