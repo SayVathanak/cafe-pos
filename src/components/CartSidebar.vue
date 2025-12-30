@@ -345,6 +345,9 @@ onMounted(() => {
             <ArrowLeft class="w-4 h-4 rotate-180 transition-transform group-hover:translate-x-1" />
           </div>
         </button>
+				<button onclick="window.location.href='rawbt://print?text=Hello'">
+				TEST RAWBT
+				</button>
       </div>
     </div>
 
