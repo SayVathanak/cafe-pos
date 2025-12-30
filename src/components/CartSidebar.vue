@@ -192,7 +192,7 @@ const confirmCheckout = async () => {
 	  emit("close-cart");
 	  fetchUsage();
 	  fetchNextId();
-	}, 300);
+	}, 500);
 };
 
 onMounted(() => {
