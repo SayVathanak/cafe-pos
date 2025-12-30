@@ -149,14 +149,50 @@ const confirmCheckout = async () => {
 
   await nextTick();
   setTimeout(() => {
-    window.print();
-    cartStore.clearCart();
-    isProcessing.value = false;
-    showConfirmation.value = false;
-    emit("close-cart");
-    fetchUsage();
-    fetchNextId();
-  }, 500);
+	  // ---- Build 58mm ESC/POS text ----
+	  const ESC = "\x1B";
+	  const init = ESC + "@";
+	  const center = ESC + "a" + "\x01";
+	  const left = ESC + "a" + "\x00";
+	  const boldOn = ESC + "E" + "\x01";
+	  const boldOff = ESC + "E" + "\x00";
+	
+	  const header =
+	    `${center}${boldOn}${settings.value.receipt_header || "STORE"}\n` +
+	    `${boldOff}${settings.value.receipt_address || ""}\n\n`;
+	
+	  const orderInfo =
+	    `${left}Order: ${nextOrderId.value}\n` +
+	    `Date: ${(new Date()).toLocaleString()}\n` +
+	    `--------------------------------\n`;
+	
+	  const items = cartStore.items.map(i =>
+	    `${i.qty} x ${i.name}\n` +
+	    `    ${Number(i.price).toLocaleString()}  →  ${(i.price * i.qty).toLocaleString()}`
+	  ).join("\n");
+	
+	  const totals =
+	    `\n--------------------------------\n` +
+	    `TOTAL: ${cartStore.cartTotal.toLocaleString()} KHR\n` +
+	    `Paid: ${paymentMethod.value}\n\n`;
+	
+	  const footer =
+	    `${center}${settings.value.receipt_footer || "Thank you!"}\n\n\n`;
+	
+	  const escpos = init + header + orderInfo + items + totals + footer;
+	
+	  // ---- Send to RawBT ----
+	  const url = "rawbt://print?data=" + encodeURIComponent(escpos);
+	  window.location.href = url;
+	
+	  // ---- Cleanup UI ----
+	  cartStore.clearCart();
+	  isProcessing.value = false;
+	  showConfirmation.value = false;
+	  emit("close-cart");
+	  fetchUsage();
+	  fetchNextId();
+	}, 300);
 };
 
 onMounted(() => {
