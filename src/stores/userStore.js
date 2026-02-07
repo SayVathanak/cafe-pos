@@ -8,10 +8,10 @@ export const useUserStore = defineStore("user", {
     storeId: null,
     storeName: null,
     organizationId: null,
+    settings: {}, // <--- NEW: Stores global settings like auto_print_receipt
   }),
 
   getters: {
-    // ✅ NEW: Helper to let YOU access Admin features
     isAdminOrSuper: (state) => ["admin", "super_admin"].includes(state.role),
   },
 
@@ -22,7 +22,6 @@ export const useUserStore = defineStore("user", {
       } = await supabase.auth.getUser();
       if (!user) return;
 
-      // ✅ FIX: We explicitly join 'stores' to get the name
       const { data: profile } = await supabase
         .from("profiles")
         .select("role, store_id, organization_id, stores(name)")
@@ -41,6 +40,24 @@ export const useUserStore = defineStore("user", {
         } else {
           this.storeName = profile.stores?.name || "Central Office";
         }
+
+        // --- NEW: Fetch Settings immediately ---
+        await this.fetchSettings();
+      }
+    },
+
+    // --- NEW ACTION: Fetch Settings from DB ---
+    async fetchSettings() {
+      if (!this.organizationId) return;
+
+      const { data } = await supabase
+        .from("settings")
+        .select("*")
+        .eq("organization_id", this.organizationId)
+        .maybeSingle();
+
+      if (data) {
+        this.settings = data;
       }
     },
 

@@ -82,6 +82,7 @@ const form = ref({
   logo_url: "",
   paper_size: "58mm",
   use_logo_header: true,
+  auto_print_receipt: true, // <--- NEW SETTING
 });
 
 const showTax = ref(false);
@@ -144,7 +145,7 @@ const getPlanValidationErrors = (targetPlanId) => {
 
   const errors = [];
 
-  // Check Menu Items (Clarified "Archive" vs "Delete")
+  // Check Menu Items
   if (
     targetPlan.max_items !== null &&
     usage.value.items > targetPlan.max_items
@@ -156,7 +157,6 @@ const getPlanValidationErrors = (targetPlanId) => {
       title: "Menu Limit Exceeded",
       current: `${usage.value.items} Active Items`,
       limit: `Max ${targetPlan.max_items}`,
-      // Helpful action text addressing "Archived vs Deleted" confusion
       action: `You must archive or delete ${diff} items to fit the new plan.`,
     });
   }
@@ -185,14 +185,10 @@ const getPlanValidationErrors = (targetPlanId) => {
 const handleDowngradeClick = (plan) => {
   const check = getPlanValidationErrors(plan.id);
 
-  // SCENARIO 1: BLOCKER (Smart Routing + Context)
   if (!check.valid) {
     const firstIssue = check.errors[0];
-
-    // Default Fallback
     let smartAction = { label: "Go to Dashboard", route: "admin-dashboard" };
 
-    // Smart Routing Logic
     if (firstIssue.type === "branches") {
       smartAction = {
         label: "Manage Stores",
@@ -227,7 +223,6 @@ const handleDowngradeClick = (plan) => {
     return;
   }
 
-  // SCENARIO 2: CONFIRMATION (Detailed Warning)
   actionModal.value = {
     isOpen: true,
     mode: "confirm",
@@ -355,6 +350,8 @@ const fetchSettings = async () => {
     showTax.value = data.tax_rate > 0;
     showService.value = data.service_charge > 0;
     if (!checkLimit("custom_logo")) form.value.use_logo_header = false;
+    // Set default if missing (handle undefined case)
+    if (data.auto_print_receipt === undefined) form.value.auto_print_receipt = true;
   }
   loading.value = false;
 };
@@ -397,7 +394,11 @@ const saveSettings = async () => {
     .upsert(payload, { onConflict: "organization_id" });
   saving.value = false;
   if (error) toast.addToast(error.message, "error");
-  else toast.addToast("Configuration Saved", "success");
+  else {
+    toast.addToast("Configuration Saved", "success");
+    // Update local store immediately to reflect changes without refresh
+    userStore.settings = { ...userStore.settings, ...payload };
+  }
 };
 
 onMounted(fetchSettings);
@@ -879,7 +880,36 @@ const tabs = [
               </div>
             </div>
           </div>
+
           <div v-if="activeTab === 'system'" class="space-y-6">
+            
+            <div
+              class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between"
+            >
+              <div>
+                <div class="text-sm font-bold text-slate-900">
+                  Auto-Print Receipt
+                </div>
+                <div class="text-[10px] text-slate-500 mt-1">
+                  Automatically open print dialog after checkout.
+                </div>
+              </div>
+              <button
+                @click="form.auto_print_receipt = !form.auto_print_receipt"
+                class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none"
+                :class="
+                  form.auto_print_receipt ? 'bg-slate-900' : 'bg-slate-200'
+                "
+              >
+                <span
+                  :class="
+                    form.auto_print_receipt ? 'translate-x-6' : 'translate-x-1'
+                  "
+                  class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm"
+                />
+              </button>
+            </div>
+
             <div
               class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm"
             >
@@ -1372,6 +1402,7 @@ const tabs = [
         </div>
       </div>
     </div>
+    
     <div
       v-if="showPaymentModal"
       class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm"
@@ -1445,4 +1476,4 @@ const tabs = [
       </div>
     </div>
   </div>
-</template> 
+</template>
